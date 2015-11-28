@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 4
+version 5
 __lua__
 px = 64
 py = 64
@@ -7,7 +7,7 @@ spd=2
 spri=0
 anim_t=0
 flp=false
-fighting=true --toggle this to change whether start in fight or not
+fighting=false --toggle this to change whether start in fight or not
 
 function _init()
  --music(o,0,15)
@@ -16,7 +16,7 @@ function _init()
  -- subject to change, but makes things a bit easier for now
 end
 
--- WALKABOUT UPDATE LOGIC
+-- walkabout update logic
 
 --check if tile with the min corner at x,y is overlapping with a solid tile
 --useful for checking if a not-yet-moved-to tile will be problematic
@@ -30,18 +30,41 @@ end
 --check solidity by pixel
 --true if pixel within a solid tile
 function solid_px(x,y)
- return solid_tile(flr(x/8),flr(y/8))
+ return check_px(x,y,1)
 end
 
---check tile for solidity (second bit)
-function solid_tile (x, y)
+--check tile bit by pixel
+--true if pixel within a tile of a certain bit
+function check_px(x,y,bit)
+ return check_tile(flr(x/8),flr(y/8),bit)
+end
+
+--check tile for bit
+function check_tile (x,y,bit)
  if x < 0 or x >= 16 then
   return true end
  if y < 0 or y >= 16 then
   return true end
 
- val = mget(x, y)
- return fget(val, 1)
+ val = mget(x,y)
+ return fget(val,bit)
+end
+
+--check if tile with min corner at x,y is sufficiently overlapped with door tile to count as entered
+--assumes only able to enter door from top or bottom
+function entered_door(x,y)
+ return check_px(x,y+7,3) and check_px(x,y+1,3)
+end
+
+--exit door to previous tile
+--assumes only enter from top or bottom
+--returns exit y value
+function exit_door_y(x,y)
+ if solid_px(x,y+8) then
+  return flr(y/8)*8-8
+ else
+  return flr(y/8)*8+8
+ end
 end
 
 function walkabout()
@@ -64,7 +87,10 @@ function walkabout()
  end
  if btn(2) then y=y-spd end
  if btn(3) then y=y+spd end
- if py != y and not sprite_collided(px,y) then
+ if entered_door(px,y) then
+  py=exit_door_y(x,y)
+  moved=false
+ elseif py != y and not sprite_collided(px,y) then
   moved=true
   py=y
  end
@@ -88,7 +114,7 @@ function walkabout()
 end
 
 ----
--- FIGHTING ANIMATION UPDATE LOGIC
+-- fighting animation update logic
 --
 -- designed to be called each update loop
 -- start_fanim() kicks off the animation state and initializes
@@ -433,7 +459,7 @@ function _update()
 end
 
 -----
--- DRAWING
+-- drawing
 --
 -- keep logic to a minimum
 -- no game behavior or state changes here
@@ -673,7 +699,7 @@ b3333333b33b333333333b3365607564f4444444f44445049aaa88892e899ae21acccca13eee2ee3
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __gff__
-0000000000000000000000000000000003030303030303030303030304040404010101010001030303030000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000303030303030303030303030c040404010101010009030303030000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 1011111111111111111111111111111200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
