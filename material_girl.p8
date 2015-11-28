@@ -7,45 +7,41 @@ spd=2
 spri=0
 anim_t=0
 flp=false
-fighting=true
-
-function sprite_collided(x,y)
-  return solid_px(x,y) or
-         solid_px(x+7,y) or
-         solid_px(x,y+7) or
-         solid_px(x+7,y+7)
-end
-
---check solidity by pixel
-function solid_px(x,y)
- return solid(flr(x/8),flr(y/8))
-end
-
---check solidity by tile
-function solid (x, y)
-	if x < 0 or x >= 16 then
-		return true end
-	if y < 0 or y >= 16 then
-	 return true end
-
-	val = mget(x, y)
-	return fget(val, 1)
-end
+fighting=true --toggle this to change whether start in fight or not
 
 function _init()
  --music(o,0,15)
+ -- most init code is above the function it relates to
+ -- also some init code at the top
+ -- subject to change, but makes things a bit easier for now
 end
 
---credit:
-function zspr(n,w,h,dx,dy,dz,zflp)
- local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
- local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
- local sw = 8 * w
- local sh = 8 * h
- local dw = sw * dz
- local dh = sh * dz
+-- WALKABOUT UPDATE LOGIC
 
- sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
+--check if tile with the min corner at x,y is overlapping with a solid tile
+--useful for checking if a not-yet-moved-to tile will be problematic
+function sprite_collided(x,y)
+ return solid_px(x,y) or
+        solid_px(x+7,y) or
+        solid_px(x,y+7) or
+        solid_px(x+7,y+7)
+end
+
+--check solidity by pixel
+--true if pixel within a solid tile
+function solid_px(x,y)
+ return solid_tile(flr(x/8),flr(y/8))
+end
+
+--check tile for solidity (second bit)
+function solid_tile (x, y)
+ if x < 0 or x >= 16 then
+  return true end
+ if y < 0 or y >= 16 then
+  return true end
+
+ val = mget(x, y)
+ return fget(val, 1)
 end
 
 function walkabout()
@@ -91,9 +87,13 @@ function walkabout()
  return true
 end
 
-function clear_text()
- rectfill(0,70,127,127,0)
-end
+----
+-- FIGHTING ANIMATION UPDATE LOGIC
+--
+-- designed to be called each update loop
+-- start_fanim() kicks off the animation state and initializes
+-- must set fanim=false on completion to indicate no longer in animation state
+----
 
 function start_fanim()
  if fanim then
@@ -330,7 +330,7 @@ function fmagic()
     flp=fals
     fpx=magwaitx-8
    end
-   
+
    magwait-=1
    return
   else
@@ -430,6 +430,30 @@ function _update()
    end
   end
  end
+end
+
+-----
+-- DRAWING
+--
+-- keep logic to a minimum
+-- no game behavior or state changes here
+-- assume frames will be missed
+-----
+
+--credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
+function zspr(n,w,h,dx,dy,dz,zflp)
+ local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
+ local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
+ local sw = 8 * w
+ local sh = 8 * h
+ local dw = sw * dz
+ local dh = sh * dz
+
+ sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
+end
+
+function clear_text()
+ rectfill(0,70,127,127,0)
 end
 
 function draw_fui()
