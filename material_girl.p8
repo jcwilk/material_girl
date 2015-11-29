@@ -67,7 +67,7 @@ function exit_door_y(x,y)
  end
 end
 
-function walkabout()
+function update_walkabout()
  local x = px
  local y = py
  local moved = false
@@ -104,13 +104,24 @@ function walkabout()
   if px > 119 then
    fighting=true
    intro=true
-   return false
+   update_fight()
+   return true
   end
  else
   spri=0
  end
  if spri == 3 then spri = 1 end
  return true
+end
+
+----
+-- Shop update logic
+--
+-- placeholder for now
+----
+
+function update_shop()
+ return false
 end
 
 ----
@@ -412,50 +423,58 @@ function frun()
  end
 end
 
+function update_fight()
+ if not fighting then
+  return false
+ end
+
+ if fintro() then
+  ehp=10
+  edef=1
+  return
+ end
+
+ if btn(0) and not hlpr then
+  hlin-=1
+  hlpr=true
+ end
+ if btn(1) and not hlpr then
+  hlin+=1
+  hlpr=true
+ end
+ if not btn(0) and not btn(1) then
+  hlpr=false
+ end
+ if hlin<0 then hlin=2 end
+ if hlin>2 then hlin=0 end
+
+ if attacking then
+  fattack()
+ elseif casting then
+  fmagic()
+ elseif running then
+  frun()
+ elseif winning then
+  fwin()
+ elseif enemy_attacking then
+  fenemy_attack()
+ elseif btn(4) then
+  if hlin==0 then
+   fattack()
+  elseif hlin==1 then
+   fmagic()
+  elseif hlin==2 then
+   frun()
+  end
+ end
+
+ return true
+end
+
 hlpr=false
 intro=true
 function _update()
- if fighting or not walkabout() then
-  if fintro() then
-   ehp=10
-   edef=1
-   return
-  end
-
-  if btn(0) and not hlpr then
-   hlin-=1
-   hlpr=true
-  end
-  if btn(1) and not hlpr then
-   hlin+=1
-   hlpr=true
-  end
-  if not btn(0) and not btn(1) then
-   hlpr=false
-  end
-  if hlin<0 then hlin=2 end
-  if hlin>2 then hlin=0 end
-
-  if attacking then
-   fattack()
-  elseif casting then
-   fmagic()
-  elseif running then
-   frun()
-  elseif winning then
-   fwin()
-  elseif enemy_attacking then
-   fenemy_attack()
-  elseif btn(4) then
-   if hlin==0 then
-    fattack()
-   elseif hlin==1 then
-    fmagic()
-   elseif hlin==2 then
-    frun()
-   end
-  end
- end
+ return update_fight() or update_shop() or update_walkabout()
 end
 
 -----
