@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 5
+version 7
 __lua__
 px = 64
 py = 64
@@ -7,9 +7,11 @@ spd=2
 spri=0
 anim_t=0
 flp=false
-fighting=false --toggle this to change whether start in fight or not
 
 function _init()
+ fighting = make_fight()
+ --fighting.start() --uncomment to start in a fight
+
  --music(o,0,15)
  -- most init code is above the function it relates to
  -- also some init code at the top
@@ -103,9 +105,8 @@ function update_walkabout()
    spri=spri+1
   end
   if px > 119 then
-   fighting=true
-   intro=true
-   update_fight()
+   fighting=make_fight()
+   fighting.start()
    return true
   end
  else
@@ -135,356 +136,450 @@ function update_buying()
 end
 
 ----
--- fighting animation update logic
---
--- designed to be called each update loop
--- start_fanim() kicks off the animation state and initializes
--- must set fanim=false on completion to indicate no longer in animation state
+-- Fight factory - call this to generate a new fight
 ----
+-- starts as inactive, calls to update/draw will noop
+-- start() - activates the fight
+-- update() - update step logic, returns false if inactive
+-- draw() - perform draw step, returns false if inactive
+-- when the fight is finished it will deactivate itself
+-- when you want a new fight, discard the old object and create a new one
+function make_fight()
+ local hlin, hlpr --selection highlighter state
+ local obj, fanim, first_draw, hide_enemy, kiss --misc fight state
+ local fpx, fpy, ofpx, ofpy, fflp, fspr --player state
+ local epx, epy, oepx, ehp, edef, eflp, espr --enemy state
 
-function start_fanim()
- if fanim then
-  return false
- else
-  fanim=true
-  return true
- end
-end
-
-function index_to_action(index)
- if index == 0 then
-  return "attack"
- elseif index == 1 then
-  return "magic"
- elseif index == 2 then
-  return "run"
- end
-end
-
-function exit_battle()
- fpx=ofpx
- fighting=false
- px=114
- flp=true
-end
-
-taunt_count=0
-function fenemy_attack()
- if start_fanim() then
-  eflp=false
-  enemy_attacking=true
-  echarging=true
-  espr=5
- end
- if echarging then
-  epx-=4
-  if epx<40 then
-   echarging=false
-   etaunting=true
-   etauntleft=false
-   fspr=2
-   fpx-=2
-   depy=4
-   taunt_count=2
-   color(12)
-   print "aint got nothin on this!"
-  end
- elseif etaunting then
-  if etauntleft then
-   epx-=4
-   epy-=depy
-   depy-=1
-   if epy>ofpy then
-    epy=ofpy
-    etauntleft=false
-    depy=4
-    fpx-=1
-    if taunt_count > 0 then
-     taunt_count-=1
-    else
-     etaunting=false
-    end
-   end
+ ----
+ -- fighting animation update logic
+ ----
+ -- designed to be called each update loop
+ -- start_fanim() kicks off the animation state and initializes
+ -- must set fanim=false on completion to indicate no longer in animation state
+ ----
+ local function start_fanim()
+  if fanim then
+   return false
   else
-   epx+=4
-   epy-=depy
-   depy-=1
-   if epy>ofpy then
-    etauntleft=true
-    depy=3
-    epy=ofpy
-   end
-  end
- else
-  espr=6
-  epx+=4
-  if epx>=oepx then
-   enemy_attacking=false
-   espr=4
-   epx=oepx
-   fanim=false
-   fspr=0
-   fpx=ofpx
-   color(14)
-   print "how hurtful..."
-  end
- end
-end
-
-oepx=80
-function fintro()
- if intro then
-  if start_fanim() then
-   fpx=-20
-   fpy=ofpy
-   enemy_intro=false
-   epx=125
-   epy=ofpy
-  end
-  if enemy_intro then
-   epx-=flr((epx-oepx)/10)+1
-   espr=4+flr(epx/8)%3
-   if epx < oepx then
-    epx=oepx
-    espr=4
-    fanim=false
-    intro=false
-    color(7)
-    print("what a beautiful baker! <3")
-   end
+   fanim=true
    return true
   end
-  fpx+=flr((ofpx-fpx)/12)+1
-  fspr=flr(fpx/5)%3
-  if(fpx>=ofpx) then
-   fpx=ofpx
-   fspr=0
-   color(7)
-   print("wow, a void!")
-   enemy_intro=true
+ end
+
+ local function index_to_action(index)
+  if index == 0 then
+   return "attack"
+  elseif index == 1 then
+   return "magic"
+  elseif index == 2 then
+   return "run"
   end
-  return true
- else
-  return false
  end
-end
 
-function fwin()
- if start_fanim() then
-  winning=true
+ local function exit_battle()
+  fpx=ofpx
+  px=114
+  flp=true
+  obj.active = false
+ end
+
+ local function fenemy_attack()
+  eflp=false
+  espr=5
+  local echarging=true
+  local taunt_count=0
+  local depy
+
+  fanim = function()
+   if echarging then
+    epx-=4
+    if epx<40 then
+     echarging=false
+     etaunting=true
+     etauntleft=false
+     fspr=2
+     fpx-=2
+     depy=4
+     taunt_count=2
+     color(12)
+     print "aint got nothin on this!"
+    end
+   elseif etaunting then
+    if etauntleft then
+     epx-=4
+     epy-=depy
+     depy-=1
+     if epy>ofpy then
+      epy=ofpy
+      etauntleft=false
+      depy=4
+      fpx-=1
+      if taunt_count > 0 then
+       taunt_count-=1
+      else
+       etaunting=false
+      end
+     end
+    else
+     epx+=4
+     epy-=depy
+     depy-=1
+     if epy>ofpy then
+      etauntleft=true
+      depy=3
+      epy=ofpy
+     end
+    end
+   else
+    espr=6
+    epx+=4
+    if epx>=oepx then
+     espr=4
+     epx=oepx
+     fanim=false
+     fspr=0
+     fpx=ofpx
+     color(14)
+     print "how hurtful..."
+    end
+   end
+  end
+ end
+
+ function fintro()
+  fpx=-20
+  fpy=ofpy
+  epx=125
+  epy=ofpy
+
+  local enemy_intro = false
+
+  fanim = function()
+   if enemy_intro then
+    epx-=flr((epx-oepx)/10)+1
+    espr=4+flr(epx/8)%3
+    if epx < oepx then
+     epx=oepx
+     espr=4
+     fanim=false
+     color(7)
+     print("what a beautiful baker! <3")
+    end
+   else
+    fpx+=flr((ofpx-fpx)/12)+1
+    fspr=flr(fpx/5)%3
+    if(fpx>=ofpx) then
+     fpx=ofpx
+     fspr=0
+     color(7)
+     print("wow, a void!")
+     enemy_intro=true
+    end
+   end
+  end
+ end
+
+ local function fwin()
   print "noooo"
-  winwait=60
- end
- if winwait<0 then
-  color(7)
-  print "exit"
-  exit_battle()
-  fanim=false
-  winning=false
-  hide_enemy=false
-  kiss=false
- elseif winwait<20 then
-  hide_enemy=true
- else
-  hide_enemy=flr(((80-winwait)/20)^2) % 2 == 0
- end
- winwait-=1
-end
+  local winwait=60
 
-function fattack()
- if start_fanim() then
-  attacking=true
-  charging=true
+  fanim = function()
+   if winwait<0 then
+    color(7)
+    exit_battle()
+   elseif winwait<20 then
+    hide_enemy=true
+   else
+    hide_enemy=flr(((80-winwait)/20)^2) % 2 == 0
+   end
+   winwait-=1
+  end
+ end
+
+ local function fattack()
+  local charging=true
   clear_text()
   color(14)
   print "*whistles*"
-  attack_success= edef < 1
- end
- if charging then
-  fspr=flr(fpx/12)%3
-  fpx+=4
-  if fpx>=60 then
-   fpx=60
-   charging=false
-   if attack_success then
-    color(14)
-    print "mwa! :*"
-    kiss=flr(rnd()*5+11)
-    ehp-=4
-    epx+=5
-    espr=6
-   else
-    eflp=true
-    epx+=8
-    color(7)
-    print "cold shoulder!"
-    color(12)
-    print "i'm sorry but i..."
-    print "think you got the wrong idea"
-   end
-  end
- else
-  fspr=2
-  fpx-=4
-  if fpx<=ofpx then
-   fanim=false
-   attacking=false
-   if ehp<=0 then
-    fwin()
-   else
-    fpx=ofpx
-    fspr=0
-    kiss=false
-    espr=4
-    epx=oepx
-    if not attack_success then
-     fenemy_attack()
+  local attack_success= edef < 1
+  fanim = function()
+   if charging then
+    fspr=flr(fpx/12)%3
+    fpx+=4
+    if fpx>=60 then
+     fpx=60
+     charging=false
+     if attack_success then
+      color(14)
+      print "mwa! :*"
+      kiss=flr(rnd()*5+11)
+      ehp-=4
+      epx+=5
+      espr=6
+     else
+      eflp=true
+      epx+=8
+      color(7)
+      print "cold shoulder!"
+      color(12)
+      print "i'm sorry but i..."
+      print "think you got the wrong idea"
+     end
     end
-   end
-  end
- end
-end
-
-function fmagic()
- if start_fanim() then
-  casting=true
-  dfpy=4
-  magret=false
-  magwait=false
-  fspr=1
-  clear_text()
- end
- if magwait then
-  fspr=0
-  if magwait>0 then
-   if magwait<20 then
-    for h in all(hearts) do
-     if h.x then
-      h.x+=flr(((20-magwait)/6)^2.5)
-      if h.x>epx+20 then
-       h.x=false
-       epx+=1
-       espr=6
+   else
+    fspr=2
+    fpx-=4
+    if fpx<=ofpx then
+     if ehp<=0 then
+      fwin()
+     else
+      fpx=ofpx
+      fspr=0
+      kiss=false
+      espr=4
+      epx=oepx
+      if attack_success then
+       fanim=false
+      else
+       fenemy_attack()
       end
      end
     end
    end
-   fspr=2
-   if flr(((50-magwait)/25)^3) % 2 == 0 then
-    flp=true
-    fpx=magwaitx
-   else
-    flp=fals
-    fpx=magwaitx-8
+  end
+ end
+
+ local function fmagic()
+  local dfpy=4
+  local magret=false
+  local magwait=false
+  fspr=1
+  clear_text()
+
+  fanim = function()
+   if magwait then
+    fspr=0
+    if magwait>0 then
+     if magwait<20 then
+      for h in all(hearts) do
+       if h.x then
+        h.x+=flr(((20-magwait)/6)^2.5)
+        if h.x>epx+20 then
+         h.x=false
+         epx+=1
+         espr=6
+        end
+       end
+      end
+     end
+     fspr=2
+     if flr(((50-magwait)/25)^3) % 2 == 0 then
+      fflp=true
+      fpx=magwaitx
+     else
+      fflp=false
+      fpx=magwaitx-8
+     end
+
+     magwait-=1
+     return
+    else
+     color(14)
+     print("of my loveliness!")
+     magwait=false
+     magret=true
+    end
    end
+   if magret then
+    fspr=2
+    fpx-=4
+    if fpx<=ofpx then
+     fspr=0
+     fpx=ofpx
+     fanim=false
+     epx=oepx
+     espr=4
+     edef-=1
+    end
+    return
+   end
+   fpy-=dfpy
+   dfpy-=1
+   fpx+=3
+   if fpy>=ofpy then
+    fpy=ofpy
+    magwait=30
+    magwaitx=fpx
+    color(14)
+    print("behold the power...")
+    for h in all(hearts) do
+     h.x=fpx+20+20*rnd()
+     h.y=fpy+5+20*rnd()
+    end
+   end
+  end
+ end
 
-   magwait-=1
-   return
-  else
-   color(14)
-   print("of my loveliness!")
-   magwait=false
-   magret=true
-  end
- end
- if magret then
-  fspr=2
-  fpx-=4
-  if fpx<=ofpx then
-   fspr=0
-   fpx=ofpx
-   fanim=false
-   casting=false
-   epx=oepx
-   espr=4
-   edef-=1
-  end
-  return
- end
- fpy-=dfpy
- dfpy-=1
- fpx+=3
- if fpy>=ofpy then
-  fpy=ofpy
-  magwait=30
-  magwaitx=fpx
-  color(14)
-  print("behold the power...")
-  for h in all(hearts) do
-   h.x=fpx+20+20*rnd()
-   h.y=fpy+5+20*rnd()
-  end
- end
-end
-
-function frun()
- if start_fanim() then
+ local function frun()
   clear_text()
   color(14)
   print "screw this!"
   fspr=2
-  running=true
- end
- fpx-=3
- if fpx<=-30 then
-  running=false
-  fanim=false
-  exit_battle()
- end
-end
-
-function update_fight()
- if not fighting then
-  return false
- end
-
- if fintro() then
-  ehp=10
-  edef=1
-  return
- end
-
- if btn(0) and not hlpr then
-  hlin-=1
-  hlpr=true
- end
- if btn(1) and not hlpr then
-  hlin+=1
-  hlpr=true
- end
- if not btn(0) and not btn(1) then
-  hlpr=false
- end
- if hlin<0 then hlin=2 end
- if hlin>2 then hlin=0 end
-
- if attacking then
-  fattack()
- elseif casting then
-  fmagic()
- elseif running then
-  frun()
- elseif winning then
-  fwin()
- elseif enemy_attacking then
-  fenemy_attack()
- elseif btn(4) then
-  if hlin==0 then
-   fattack()
-  elseif hlin==1 then
-   fmagic()
-  elseif hlin==2 then
-   frun()
+  fanim = function()
+   fpx-=3
+   if fpx<=-30 then
+    exit_battle()
+   end
   end
  end
 
- return true
+ local function update_fight()
+  if not obj.active then
+   return false
+  end
+
+  if fanim then
+   fanim()
+   return true
+  end
+
+  if btn(0) and not hlpr then
+   hlin-=1
+   hlpr=true
+  end
+  if btn(1) and not hlpr then
+   hlin+=1
+   hlpr=true
+  end
+  if not btn(0) and not btn(1) then
+   hlpr=false
+  end
+  if hlin<0 then hlin=2 end
+  if hlin>2 then hlin=0 end
+
+  if btn(4) then
+   if hlin==0 then
+    fattack()
+   elseif hlin==1 then
+    fmagic()
+   elseif hlin==2 then
+    frun()
+   end
+  end
+
+  return true
+ end
+
+ -----------------------
+ --Drawing fighting code
+ -----------------------
+ local function draw_fui()
+  if not fanim then
+   color(1)
+   if hlin == 0 then
+    rectfill(0,63,24,69)
+   elseif hlin == 1 then
+    rectfill(28,63,48,69)
+   elseif hlin == 2 then
+    rectfill(52,63,64,69)
+   end
+   cursor(1,64)
+   color(7)
+   print("attack magic run")
+  end
+ end
+
+ function draw_fighter()
+  zspr(fspr,1,1,fpx,fpy,4,fflp)
+ end
+
+ function draw_enemy()
+  if not hide_enemy then
+   zspr(espr,1,1,epx,epy,4,eflp)
+  end
+ end
+
+ function draw_kiss()
+  if kiss then
+   if not kissx then
+    kissx=epx+10+rnd()*10
+    kissy=epy+2+rnd()*10
+   end
+   spr(kiss,kissx,kissy)
+  else
+   kissx=false
+   kissy=false
+  end
+ end
+
+ function draw_hearts(fg)
+  for h in all(hearts) do
+   if h.x then
+    if not fg and h.x-4 > epx then
+     zspr(10,1,1,h.x-8,h.y-8,4)
+    elseif fg then
+     spr(10,h.x,h.y)
+    end
+   end
+  end
+ end
+
+ local function draw_fight()
+  if obj.active then
+   if first_draw then
+    first_draw=false
+    cls()
+    cursor(1,70)
+   end
+   --clear above text
+   rectfill(0,0,127,69,0)
+   draw_fui()
+   draw_fighter()
+   draw_hearts(false)
+   draw_enemy()
+   draw_kiss()
+   draw_hearts(true)
+   return true
+  else
+   return false
+  end
+ end
+
+ --object initialization and return
+ obj = {
+  update = update_fight,
+  draw = draw_fight,
+  start = function()
+   hlin=0
+   hlpr=false
+   first_draw=true
+
+   oepx=80
+   ehp=10
+   edef=1
+   espr=4
+
+   ofpx=10
+   ofpy=10
+   fspr=0
+   fflp=false
+
+   hearts={}
+   for i=1,6 do
+    add(hearts,{})
+   end
+
+   obj.active = true
+   fintro()
+  end,
+  active = false
+ }
+
+ return obj
 end
 
-hlpr=false
-intro=true
 function _update()
- return update_fight() or update_buying() or update_walkabout()
+ return fighting.update() or update_buying() or update_walkabout()
 end
 
 -----
@@ -511,86 +606,10 @@ function clear_text()
  rectfill(0,70,127,127,0)
 end
 
-function draw_fui()
- if not fanim then
-  color(1)
-  if hlin == 0 then
-   rectfill(0,63,24,69)
-  elseif hlin == 1 then
-   rectfill(28,63,48,69)
-  elseif hlin == 2 then
-   rectfill(52,63,64,69)
-  end
-  cursor(1,64)
-  color(7)
-  print("attack magic run")
- end
-end
-
-fpx=10
-fpy=10
-ofpx=fpx
-ofpy=fpy
-function draw_fighter()
- zspr(fspr,1,1,fpx,fpy,4,flp)
-end
-
-espr=4
-function draw_enemy()
- if not hide_enemy then
-  zspr(espr,1,1,epx,epy,4,eflp)
- end
-end
-
-function draw_kiss()
- if kiss then
-  if not kissx then
-   kissx=epx+10+rnd()*10
-   kissy=epy+2+rnd()*10
-  end
-  spr(kiss,kissx,kissy)
- else
-  kissx=false
-  kissy=false
- end
-end
-
-hearts={}
-for i=1,6 do
- add(hearts,{})
-end
-function draw_hearts(fg)
- for h in all(hearts) do
-  if h.x then
-   if not fg and h.x-4 > epx then
-    zspr(10,1,1,h.x-8,h.y-8,4)
-   elseif fg then
-    spr(10,h.x,h.y)
-   end
-  end
- end
-end
-
-hlin=0
 function _draw()
- if fighting then
-  if not lastf then
-   lastf=true
-   fspr=0
-   cls()
-   cursor(1,70)
-  end
-  --clear above text
-  rectfill(0,0,127,69,0)
-  draw_fui()
-  draw_fighter()
-  draw_hearts(false)
-  draw_enemy()
-  draw_kiss()
-  draw_hearts(true)
+ if fighting.draw() then
   return
  end
- lastf=false
 
  if buying then
   rectfill(10,10,117,117,0)
