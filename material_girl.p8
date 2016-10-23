@@ -10,6 +10,7 @@ flp=false
 
 function _init()
  fighting = make_fight()
+ store = make_store()
  --fighting.start() --uncomment to start in a fight
 
  --music(o,0,15)
@@ -91,7 +92,7 @@ function update_walkabout()
  if btn(3) then y=y+spd end
  if entered_door(px,y) then
   moved=false
-  buying=true
+  store.start()
   return true
  elseif py != y and not sprite_collided(px,y) then
   moved=true
@@ -116,24 +117,123 @@ function update_walkabout()
  return true
 end
 
-----
--- Shop update logic
---
--- placeholder for now
-----
+function make_menu(item_length)
+ local obj
+ local move_pressed=true
+ local select_pressed=false
 
-function update_buying()
- if not buying then
-  return false
+ local function check_buttons()
+  if move_pressed then
+   if not btn(0) and not btn(1) and not btn(2) and not btn(3) then
+    move_pressed=false
+   end
+  else
+   if (btn(0) or btn(2)) and not (btn(1) or btn(3)) then
+    obj.selection_index-=1
+    move_pressed=true
+   end
+   if (btn(1) or btn(3)) and not (btn(0) or btn(2)) then
+    obj.selection_index+=1
+    move_pressed=true
+   end
+  end
+  if obj.selection_index<0 then obj.selection_index=item_length-1 end
+  if obj.selection_index>=item_length then obj.selection_index=0 end
+
+  if select_pressed then
+   obj.selected = false
+   if not btn(4) then
+    select_pressed = false
+   end
+  elseif btn(4) then
+    select_pressed = true
+    obj.selected = true
+  end
  end
 
- if btn(4) then
-  buying=false
-  py=exit_door_y(px,py)
- end
+ obj = {
+  check_buttons = check_buttons,
+  selection_index = 0,
+  selected = false
+ }
 
- return true
+ return obj
 end
+
+function make_store()
+ local obj
+ local menu
+ local started
+
+ local function update_store()
+  if not started then
+   return false
+  end
+
+  menu.check_buttons()
+
+  if menu.selected then
+   ring = menu.selection_index
+   py=exit_door_y(px,py)
+   store=make_store()
+   return false
+  end
+
+  return true
+ end
+
+ local function draw_store()
+  if started then
+   local colors={6,6,6,6}
+   colors[menu.selection_index+1]=8
+   rectfill(18,18,109,109,0)
+   rectfill(16,19,111,108,7)
+   rectfill(10,26,117,101,0)
+   rectfill(13,29,46,62,colors[1])
+   rectfill(47,32,79,44,colors[1])
+
+   rectfill(81,29,114,62,colors[2])
+   rectfill(48,49,80,61,colors[2])
+
+   rectfill(13,65,46,98,colors[3])
+   rectfill(47,66,79,78,colors[3])
+
+   rectfill(81,65,114,98,colors[4])
+   rectfill(48,83,80,95,colors[4])
+   zspr(40,1,1,14,30,4,false)
+   zspr(40,1,1,82,30,4,false)
+   zspr(40,1,1,14,66,4,false)
+   zspr(40,1,1,82,66,4,false)
+   cursor(53,36)
+   color(7)
+   print("hello")
+   cursor(53,53)
+   color(7)
+   print("hello")
+   cursor(53,70)
+   color(7)
+   print("hello")
+   cursor(53,87)
+   color(7)
+   print("hello")
+   return true
+  else
+   return false
+  end
+ end
+
+ obj = {
+  update = update_store,
+  draw = draw_store,
+  start = function()
+   menu = make_menu(4)
+   started = true
+  end
+ }
+
+ return obj
+end
+
 
 ----
 -- Fight factory - call this to generate a new fight
@@ -145,7 +245,7 @@ end
 -- when the fight is finished it will deactivate itself
 -- when you want a new fight, discard the old object and create a new one
 function make_fight()
- local hlin, hlpr --selection highlighter state
+ local menu --to track battle menu selection
  local obj, fanim, first_draw, hide_enemy, kiss --misc fight state
  local fpx, fpy, ofpx, ofpy, fflp, fspr --player state
  local epx, epy, oepx, ehp, edef, eflp, espr --enemy state
@@ -443,26 +543,14 @@ function make_fight()
    return true
   end
 
-  if btn(0) and not hlpr then
-   hlin-=1
-   hlpr=true
-  end
-  if btn(1) and not hlpr then
-   hlin+=1
-   hlpr=true
-  end
-  if not btn(0) and not btn(1) then
-   hlpr=false
-  end
-  if hlin<0 then hlin=2 end
-  if hlin>2 then hlin=0 end
+  menu.check_buttons()
 
-  if btn(4) then
-   if hlin==0 then
+  if menu.selected then
+   if menu.selection_index==0 then
     fattack()
-   elseif hlin==1 then
+   elseif menu.selection_index==1 then
     fmagic()
-   elseif hlin==2 then
+   elseif menu.selection_index==2 then
     frun()
    end
   end
@@ -476,11 +564,11 @@ function make_fight()
  local function draw_fui()
   if not fanim then
    color(1)
-   if hlin == 0 then
+   if menu.selection_index == 0 then
     rectfill(0,63,24,69)
-   elseif hlin == 1 then
+   elseif menu.selection_index == 1 then
     rectfill(28,63,48,69)
-   elseif hlin == 2 then
+   elseif menu.selection_index == 2 then
     rectfill(52,63,64,69)
    end
    cursor(1,64)
@@ -550,8 +638,6 @@ function make_fight()
   update = update_fight,
   draw = draw_fight,
   start = function()
-   hlin=0
-   hlpr=false
    first_draw=true
 
    oepx=80
@@ -569,6 +655,8 @@ function make_fight()
     add(hearts,{})
    end
 
+   menu = make_menu(3)
+
    obj.active = true
    fintro()
   end,
@@ -579,7 +667,7 @@ function make_fight()
 end
 
 function _update()
- return fighting.update() or update_buying() or update_walkabout()
+ return fighting.update() or store.update() or update_walkabout()
 end
 
 -----
@@ -607,12 +695,7 @@ function clear_text()
 end
 
 function _draw()
- if fighting.draw() then
-  return
- end
-
- if buying then
-  rectfill(10,10,117,117,0)
+ if fighting.draw() or store.draw() then
   return
  end
 
