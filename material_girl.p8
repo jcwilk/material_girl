@@ -56,16 +56,34 @@ end
 --check if tile with min corner at x,y is sufficiently overlapped with door tile to count as entered
 --assumes only able to enter door from top or bottom
 function entered_door(x,y)
- return check_px(x,y+7,3) and check_px(x,y+1,3)
+ if check_px(x,y+7,3) and check_px(x,y+1,3) then
+  -- figure out which door it is by which quadrant the player is in
+  if x > 64 then
+   if y > 64 then
+    return 4 --shoes
+   else
+    return 3 --ring
+   end
+  else
+   if y > 64 then
+    return 2 --lipstick
+   else
+    return 1 --dress
+   end
+  end
+ else
+  return false
+ end
 end
 
 --exit door to previous tile
 --assumes only enter from top or bottom
 --returns exit y value
 function exit_door_y(x,y)
- if solid_px(x,y+8) then
+ -- 12 because 8 is tile width + 4 of buffer to allow for high movement speeds
+ if solid_px(x,y+12) then --low door
   return flr(y/8)*8-8
- else
+ else --high door
   return flr(y/8)*8+8
  end
 end
@@ -90,9 +108,11 @@ function update_walkabout()
  end
  if btn(2) then y=y-spd end
  if btn(3) then y=y+spd end
- if entered_door(px,y) then
+
+ local store_index = entered_door(px,y)
+ if store_index then
   moved=false
-  store.start()
+  store.start(store_index)
   return true
  elseif py != y and not sprite_collided(px,y) then
   moved=true
@@ -116,6 +136,78 @@ function update_walkabout()
  if spri == 3 then spri = 1 end
  return true
 end
+
+function make_inventory()
+ local dress_light_color_map = {11,14,10,13}
+ local dress_dark_color_map = {3,2,9,1}
+ local lipstick_color_map = {8,14,13,2}
+ local ring_color_map = {14,13,9,8}
+ local shoes_color_map = {4,5,7,8}
+ local equipped_items = {1,1,1,1}
+ local obj = {
+  store_sprite_map = {41,39,40,38},
+  dress_light_color = 11,
+  dress_dark_color = 3,
+  ring_color = 14,
+  lipstick_color = 8,
+  shoes_color = 4
+ }
+
+ local function update_ring(index)
+  obj.ring_color = ring_color_map[index]
+ end
+
+ local function update_dress(index)
+  obj.dress_light_color = dress_light_color_map[index]
+  obj.dress_dark_color = dress_dark_color_map[index]
+ end
+
+ local function update_shoes(index)
+  obj.shoes_color = shoes_color_map[index]
+ end
+
+ local function update_lipstick(index)
+  obj.lipstick_color = lipstick_color_map[index]
+ end
+
+ obj.update_item = function(store_index, item_index)
+  equipped_items[store_index] = item_index
+  if store_index == 1 then
+   update_dress(item_index)
+  elseif store_index == 2 then
+   update_lipstick(item_index)
+  elseif store_index == 3 then
+   update_ring(item_index)
+  elseif store_index == 4 then
+   update_shoes(item_index)
+  end
+ end
+
+ obj.remap_girl_colors = function()
+  pal(14,obj.ring_color)
+  pal(8,obj.lipstick_color)
+  pal(11,obj.dress_light_color)
+  pal(3,obj.dress_dark_color)
+  pal(4,obj.shoes_color)
+ end
+
+ obj.remap_store_colors = function(store_index, item_index)
+  if store_index == 1 then
+   pal(14,dress_light_color_map[item_index]) --pink
+   pal(2,dress_dark_color_map[item_index]) --purple
+  elseif store_index == 2 then
+   pal(8,lipstick_color_map[item_index]) --red
+  elseif store_index == 3 then
+   pal(7,ring_color_map[item_index])
+  elseif store_index == 4 then
+   pal(8,shoes_color_map[item_index]) --red
+  end
+ end
+
+ return obj
+end
+
+inventory = make_inventory()
 
 function make_menu(item_length)
  local obj
@@ -164,6 +256,8 @@ function make_store()
  local obj
  local menu
  local started
+ local store_index
+ local store_sprite_index
 
  local function update_store()
   if not started then
@@ -173,7 +267,7 @@ function make_store()
   menu.check_buttons()
 
   if menu.selected then
-   ring = menu.selection_index
+   inventory.update_item(store_index, menu.selection_index+1)
    py=exit_door_y(px,py)
    store=make_store()
    return false
@@ -186,34 +280,39 @@ function make_store()
   if started then
    local colors={6,6,6,6}
    colors[menu.selection_index+1]=8
-   rectfill(18,18,109,109,0)
-   rectfill(16,19,111,108,7)
-   rectfill(10,26,117,101,0)
-   rectfill(13,29,46,62,colors[1])
-   rectfill(47,32,79,44,colors[1])
+   rectfill(8,22,119,105,0)
+   rectfill(9,23,118,104,7)
+   rectfill(10,24,117,103,0)
+   rectfill(13,27,46,60,colors[1])
+   rectfill(47,28,79,40,colors[1])
 
-   rectfill(81,29,114,62,colors[2])
-   rectfill(48,49,80,61,colors[2])
+   rectfill(81,27,114,60,colors[2])
+   rectfill(48,47,80,59,colors[2])
 
-   rectfill(13,65,46,98,colors[3])
-   rectfill(47,66,79,78,colors[3])
+   rectfill(13,67,46,100,colors[3])
+   rectfill(47,68,79,80,colors[3])
 
-   rectfill(81,65,114,98,colors[4])
-   rectfill(48,83,80,95,colors[4])
-   zspr(40,1,1,14,30,4,false)
-   zspr(40,1,1,82,30,4,false)
-   zspr(40,1,1,14,66,4,false)
-   zspr(40,1,1,82,66,4,false)
-   cursor(53,36)
+   rectfill(81,67,114,100,colors[4])
+   rectfill(48,87,80,99,colors[4])
+   inventory.remap_store_colors(store_index,1)
+   zspr(store_sprite_index,1,1,14,28,4,false)
+   inventory.remap_store_colors(store_index,2)
+   zspr(store_sprite_index,1,1,82,28,4,false)
+   inventory.remap_store_colors(store_index,3)
+   zspr(store_sprite_index,1,1,14,68,4,false)
+   inventory.remap_store_colors(store_index,4)
+   zspr(store_sprite_index,1,1,82,68,4,false)
+   pal()
+   cursor(53,32)
    color(7)
    print("hello")
-   cursor(53,53)
+   cursor(53,51)
    color(7)
    print("hello")
-   cursor(53,70)
+   cursor(53,72)
    color(7)
    print("hello")
-   cursor(53,87)
+   cursor(53,91)
    color(7)
    print("hello")
    return true
@@ -225,8 +324,10 @@ function make_store()
  obj = {
   update = update_store,
   draw = draw_store,
-  start = function()
+  start = function(store_i)
    menu = make_menu(4)
+   store_index = store_i
+   store_sprite_index = inventory.store_sprite_map[store_index]
    started = true
   end
  }
@@ -578,7 +679,9 @@ function make_fight()
  end
 
  function draw_fighter()
+  inventory.remap_girl_colors()
   zspr(fspr,1,1,fpx,fpy,4,fflp)
+  pal()
  end
 
  function draw_enemy()
@@ -703,7 +806,9 @@ function _draw()
  palt(0,false)
  map(0,0,0,0,128,128,1)
  palt()
+ inventory.remap_girl_colors()
  spr(spri,px,py,1,1,flp)
+ pal()
  map(0,0,0,0,128,128,4)
 end
 __gfx__
