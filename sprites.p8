@@ -2,8 +2,20 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 
--- sprite stuffs
 -- START LIB
+--credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
+function zspr(n,w,h,dx,dy,dz,zflp)
+ local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
+ local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
+ local sw = 8 * w
+ local sh = 8 * h
+ local dw = sw * dz
+ local dh = sh * dz
+
+ sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
+end
+
+-- sprite stuffs
 make_pool = function()
  local store = {}
  local id_counter = 0
@@ -175,18 +187,6 @@ end
 -- no game behavior or state changes here
 -- assume frames will be missed
 -----
-
---credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
-function zspr(n,w,h,dx,dy,dz,zflp)
- local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
- local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
- local sw = 8 * w
- local sh = 8 * h
- local dw = sw * dz
- local dh = sh * dz
-
- sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
-end
 
 function _draw()
  cls()

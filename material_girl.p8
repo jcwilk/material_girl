@@ -3,6 +3,19 @@ version 8
 __lua__
 
 -- START EXT ./sprites.p8
+--credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
+function zspr(n,w,h,dx,dy,dz,zflp)
+ local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
+ local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
+ local sw = 8 * w
+ local sh = 8 * h
+ local dw = sw * dz
+ local dh = sh * dz
+
+ sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
+end
+
+-- sprite stuffs
 make_pool = function()
  local store = {}
  local id_counter = 0
@@ -113,164 +126,7 @@ tweens = {
 }
 -- END EXT
 
-px = 64
-py = 64
-spd=2
-spri=0
-anim_t=0
-flp=false
-
-function _init()
- fighting = make_fight()
- store = make_store()
- --fighting.start() --uncomment to start in a fight
-
- --music(o,0,15)
- -- most init code is above the function it relates to
- -- also some init code at the top
- -- subject to change, but makes things a bit easier for now
-end
-
--- sprite stuffs
-
-sprites = {
- all = {},
- make = function(sprite_id, properties)
-  properties = properties or {}
-  properties.sprite_id = sprite_id
-  properties.scale = properties.scale or 1
-  if properties.flip == null then
-   properties.flip = false
-  end
-  add(sprites.all,properties)
-  return properties
- end,
- draw = function()
-  for s in all(sprites.all) do
-   zspr(s.sprite_id,1,1,s.x,s.y,s.scale,s.flip)
-  end
- end
-}
-
-
--- walkabout update logic
-
---check if tile with the min corner at x,y is overlapping with a solid tile
---useful for checking if a not-yet-moved-to tile will be problematic
-function sprite_collided(x,y)
- return solid_px(x,y) or
-        solid_px(x+7,y) or
-        solid_px(x,y+7) or
-        solid_px(x+7,y+7)
-end
-
---check solidity by pixel
---true if pixel within a solid tile
-function solid_px(x,y)
- return check_px(x,y,1)
-end
-
---check tile bit by pixel
---true if pixel within a tile of a certain bit
-function check_px(x,y,bit)
- return check_tile(flr(x/8),flr(y/8),bit)
-end
-
---check tile for bit
-function check_tile (x,y,bit)
- if x < 0 or x >= 16 then
-  return true end
- if y < 0 or y >= 16 then
-  return true end
-
- val = mget(x,y)
- return fget(val,bit)
-end
-
---check if tile with min corner at x,y is sufficiently overlapped with door tile to count as entered
---assumes only able to enter door from top or bottom
-function entered_door(x,y)
- if check_px(x,y+7,3) and check_px(x,y+1,3) then
-  -- figure out which door it is by which quadrant the player is in
-  if x > 64 then
-   if y > 64 then
-    return 4 --shoes
-   else
-    return 3 --ring
-   end
-  else
-   if y > 64 then
-    return 2 --lipstick
-   else
-    return 1 --dress
-   end
-  end
- else
-  return false
- end
-end
-
---exit door to previous tile
---assumes only enter from top or bottom
---returns exit y value
-function exit_door_y(x,y)
- -- 12 because 8 is tile width + 4 of buffer to allow for high movement speeds
- if solid_px(x,y+12) then --low door
-  return flr(y/8)*8-8
- else --high door
-  return flr(y/8)*8+8
- end
-end
-
-function update_walkabout()
- local x = px
- local y = py
- local moved = false
- local nflp
- if btn(0) then
-  nflp=true
-  x=x-spd
- end
- if btn(1) then
-  nflp=false
-  x=x+spd
- end
- if px != x and not sprite_collided(x,py) then
-  moved=true
-  px=x
-  flp=nflp
- end
- if btn(2) then y=y-spd end
- if btn(3) then y=y+spd end
-
- local store_index = entered_door(px,y)
- if store_index then
-  moved=false
-  store.start(store_index)
-  return true
- elseif py != y and not sprite_collided(px,y) then
-  moved=true
-  py=y
- end
-
- if moved then
-  anim_t+=1
-  if anim_t == 4 then
-   anim_t=0
-   spri=spri+1
-  end
-  if px > 119 then
-   fighting=make_fight()
-   fighting.start()
-   return true
-  end
- else
-  spri=0
- end
- if spri == 3 then spri = 1 end
- return true
-end
-
+-- START EXT inventory.lua
 function make_inventory()
  local dress_light_color_map = {11,14,10,13}
  local dress_dark_color_map = {3,2,9,1}
@@ -349,9 +205,12 @@ function make_inventory()
 
  return obj
 end
+-- END EXT
 
-inventory = make_inventory()
-
+-- START EXT store.lua
+-- depends on:
+-- store - global var to store current store
+-- exit_door() - walkabout method
 function make_menu(item_length)
  local obj
  local move_pressed=true
@@ -395,7 +254,7 @@ function make_menu(item_length)
  return obj
 end
 
-function make_store()
+function make_store(inv)
  local obj
  local menu
  local started
@@ -410,9 +269,9 @@ function make_store()
   menu.check_buttons()
 
   if menu.selected then
-   inventory.update_item(store_index, menu.selection_index+1)
+   inv.update_item(store_index, menu.selection_index+1)
    py=exit_door_y(px,py)
-   store=make_store()
+   store=make_store(inv)
    return false
   end
 
@@ -437,13 +296,13 @@ function make_store()
 
    rectfill(81,67,114,100,colors[4])
    rectfill(48,87,80,99,colors[4])
-   inventory.remap_store_colors(store_index,1)
+   inv.remap_store_colors(store_index,1)
    zspr(store_sprite_index,1,1,14,28,4,false)
-   inventory.remap_store_colors(store_index,2)
+   inv.remap_store_colors(store_index,2)
    zspr(store_sprite_index,1,1,82,28,4,false)
-   inventory.remap_store_colors(store_index,3)
+   inv.remap_store_colors(store_index,3)
    zspr(store_sprite_index,1,1,14,68,4,false)
-   inventory.remap_store_colors(store_index,4)
+   inv.remap_store_colors(store_index,4)
    zspr(store_sprite_index,1,1,82,68,4,false)
    pal()
    cursor(53,32)
@@ -470,15 +329,17 @@ function make_store()
   start = function(store_i)
    menu = make_menu(4)
    store_index = store_i
-   store_sprite_index = inventory.store_sprite_map[store_index]
+   store_sprite_index = inv.store_sprite_map[store_index]
    started = true
   end
  }
 
  return obj
 end
+-- END EXT
 
 
+-- START EXT fight.lua
 ----
 -- Fight factory - call this to generate a new fight
 ----
@@ -488,7 +349,7 @@ end
 -- draw() - perform draw step, returns false if inactive
 -- when the fight is finished it will deactivate itself
 -- when you want a new fight, discard the old object and create a new one
-function make_fight()
+function make_fight(inv)
  local obj, fanim, first_draw, hide_enemy, kiss --misc fight state
  local fpx, fpy, ofpx, ofpy, fflp, fspr --player state
  local epx, epy, oepx, ehp, edef, eflp, espr --enemy state
@@ -829,7 +690,7 @@ function make_fight()
  function draw_fighter()
   local scale
 
-  inventory.remap_girl_colors()
+  inv.remap_girl_colors()
   if fpx <= 0 then
    scale = 1
   else --if fpx < ofpx then
@@ -863,7 +724,7 @@ function make_fight()
     kissx=epx+10+rnd()*10
     kissy=epy+2+rnd()*10
    end
-   inventory.remap_kiss()
+   inv.remap_kiss()
    spr(kiss,kissx,kissy)
    pal()
   else
@@ -874,7 +735,7 @@ function make_fight()
 
  function draw_hearts(fg)
   local scale
-  inventory.remap_hearts()
+  inv.remap_hearts()
   for h in all(hearts) do
    if h.x then
     if not fg and h.x-4 > epx then
@@ -939,6 +800,148 @@ function make_fight()
 
  return obj
 end
+-- END EXT
+
+---------------------------------------------------------------
+------------ End external code
+---------------------------------------------------------------
+
+
+-- walkabout update logic
+
+--check if tile with the min corner at x,y is overlapping with a solid tile
+--useful for checking if a not-yet-moved-to tile will be problematic
+function sprite_collided(x,y)
+ return solid_px(x,y) or
+        solid_px(x+7,y) or
+        solid_px(x,y+7) or
+        solid_px(x+7,y+7)
+end
+
+--check solidity by pixel
+--true if pixel within a solid tile
+function solid_px(x,y)
+ return check_px(x,y,1)
+end
+
+--check tile bit by pixel
+--true if pixel within a tile of a certain bit
+function check_px(x,y,bit)
+ return check_tile(flr(x/8),flr(y/8),bit)
+end
+
+--check tile for bit
+function check_tile (x,y,bit)
+ if x < 0 or x >= 16 then
+  return true end
+ if y < 0 or y >= 16 then
+  return true end
+
+ val = mget(x,y)
+ return fget(val,bit)
+end
+
+--check if tile with min corner at x,y is sufficiently overlapped with door tile to count as entered
+--assumes only able to enter door from top or bottom
+function entered_door(x,y)
+ if check_px(x,y+7,3) and check_px(x,y+1,3) then
+  -- figure out which door it is by which quadrant the player is in
+  if x > 64 then
+   if y > 64 then
+    return 4 --shoes
+   else
+    return 3 --ring
+   end
+  else
+   if y > 64 then
+    return 2 --lipstick
+   else
+    return 1 --dress
+   end
+  end
+ else
+  return false
+ end
+end
+
+--exit door to previous tile
+--assumes only enter from top or bottom
+--returns exit y value
+function exit_door_y(x,y)
+ -- 12 because 8 is tile width + 4 of buffer to allow for high movement speeds
+ if solid_px(x,y+12) then --low door
+  return flr(y/8)*8-8
+ else --high door
+  return flr(y/8)*8+8
+ end
+end
+
+function update_walkabout()
+ local x = px
+ local y = py
+ local moved = false
+ local nflp
+ if btn(0) then
+  nflp=true
+  x=x-spd
+ end
+ if btn(1) then
+  nflp=false
+  x=x+spd
+ end
+ if px != x and not sprite_collided(x,py) then
+  moved=true
+  px=x
+  flp=nflp
+ end
+ if btn(2) then y=y-spd end
+ if btn(3) then y=y+spd end
+
+ local store_index = entered_door(px,y)
+ if store_index then
+  moved=false
+  store.start(store_index)
+  return true
+ elseif py != y and not sprite_collided(px,y) then
+  moved=true
+  py=y
+ end
+
+ if moved then
+  anim_t+=1
+  if anim_t == 4 then
+   anim_t=0
+   spri=spri+1
+  end
+  if px > 119 then
+   fighting=make_fight(inventory)
+   fighting.start()
+   return true
+  end
+ else
+  spri=0
+ end
+ if spri == 3 then spri = 1 end
+ return true
+end
+
+function _init()
+ px = 64
+ py = 64
+ spd=2
+ spri=0
+ anim_t=0
+ flp=false
+ inventory = make_inventory()
+ fighting = make_fight(inventory)
+ store = make_store(inventory)
+ --fighting.start() --uncomment to start in a fight
+
+ --music(o,0,15)
+ -- most init code is above the function it relates to
+ -- also some init code at the top
+ -- subject to change, but makes things a bit easier for now
+end
 
 function _update()
  return fighting.update() or store.update() or update_walkabout()
@@ -951,18 +954,6 @@ end
 -- no game behavior or state changes here
 -- assume frames will be missed
 -----
-
---credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
-function zspr(n,w,h,dx,dy,dz,zflp)
- local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
- local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
- local sw = 8 * w
- local sh = 8 * h
- local dw = sw * dz
- local dh = sh * dz
-
- sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
-end
 
 function clear_text()
  rectfill(0,70,127,127,0)
