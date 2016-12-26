@@ -19,6 +19,28 @@ function _init()
  -- subject to change, but makes things a bit easier for now
 end
 
+-- sprite stuffs
+
+sprites = {
+ all = {},
+ make = function(sprite_id, properties)
+  properties = properties or {}
+  properties.sprite_id = sprite_id
+  properties.scale = properties.scale or 1
+  if properties.flip == null then
+   properties.flip = false
+  end
+  add(sprites.all,properties)
+  return properties
+ end,
+ draw = function()
+  for s in all(sprites.all) do
+   zspr(s.sprite_id,1,1,s.x,s.y,s.scale,s.flip)
+  end
+ end
+}
+
+
 -- walkabout update logic
 
 --check if tile with the min corner at x,y is overlapping with a solid tile
@@ -458,7 +480,7 @@ function make_fight()
  function fintro()
   fpx=-20
   fpy=ofpy
-  epx=125
+  epx=128
   epy=ofpy
 
   local enemy_intro = false
@@ -571,9 +593,9 @@ function make_fight()
     if magwait>0 then
      if magwait<20 then
       for h in all(hearts) do
-       if h.x then
-        h.x+=flr(((20-magwait)/6)^2.5)
-        if h.x>epx+20 then
+       if h.x and h.x > fpx+20+magwait then
+        h.x+=8--flr(((20-magwait)/6)^2.5)
+        if h.x>epx+30 then
          h.x=false
          epx+=1
          espr=6
@@ -621,8 +643,10 @@ function make_fight()
     magwaitx=fpx
     color(14)
     print("behold the power...")
+    local counter=0
     for h in all(hearts) do
-     h.x=fpx+20+20*rnd()
+     counter+=2
+     h.x=fpx+25+counter--15*rnd()
      h.y=fpy+5+20*rnd()
     end
    end
@@ -691,14 +715,33 @@ function make_fight()
  end
 
  function draw_fighter()
+  local scale
+
   inventory.remap_girl_colors()
-  zspr(fspr,1,1,fpx,fpy,4,fflp)
+  if fpx <= 0 then
+   scale = 1
+  else --if fpx < ofpx then
+   scale = 3*fpx/ofpx+1
+  --else
+   --scale = 4
+  end
+  sprites.make(fspr,{x = fpx-10, y = fpy+(12*(4-scale)/3)})
+
+  zspr(fspr,1,1,fpx,fpy+(12*(4-scale)/3),scale,fflp)
   pal()
  end
 
  function draw_enemy()
+  local scale
   if not hide_enemy then
-   zspr(espr,1,1,epx,epy,4,eflp)
+   if epx >= 120 then
+    scale = 1
+   elseif epx > oepx then
+    scale = 3*(120-epx)/(120-oepx)+1
+   else
+    scale = 4
+   end
+   zspr(espr,1,1,epx,epy+(12*(4-scale)/3),scale,eflp)
   end
  end
 
@@ -718,11 +761,13 @@ function make_fight()
  end
 
  function draw_hearts(fg)
+  local scale
   inventory.remap_hearts()
   for h in all(hearts) do
    if h.x then
     if not fg and h.x-4 > epx then
-     zspr(10,1,1,h.x-8,h.y-8,4)
+     scale = (h.x-epx)/4
+     zspr(10,1,1,h.x-8,h.y-4*(scale-1),scale)
     elseif fg then
      spr(10,h.x,h.y)
     end
@@ -812,6 +857,7 @@ function clear_text()
 end
 
 function _draw()
+ sprites.draw()
  if fighting.draw() or store.draw() then
   return
  end
