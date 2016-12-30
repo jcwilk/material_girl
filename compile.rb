@@ -9,12 +9,12 @@ def extract_from_file(filename)
   lines = []
   File.readlines(filename).each do |line|
     if !reading
-      if line =~ /-- ?START LIB/
+      if line =~ /-- ?START LIB/i
         reading = true
       end
       next
     end
-    return lines if line =~ /^-- ?END LIB/
+    return lines if line =~ /^-- ?END LIB/i
     lines << line
   end
   lines
@@ -25,11 +25,11 @@ inserting = false
 File.readlines('material_girl.p8').each do |line|
   if !inserting
     tmp << line
-    if line =~ /-- ?START EXT ([^ ]+)\w*$/
+    if line =~ /-- ?START EXT ([^ ]+)\w*$/i
       extract_from_file($1.strip).each {|l| tmp << l }
       inserting = true
     end
-  elsif line =~ /-- ?END EXT/
+  elsif line =~ /-- ?END EXT/i
     tmp << line
     inserting = false
   end
