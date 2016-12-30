@@ -58,6 +58,7 @@ function make_fight(inv)
    fighter.x-= 2
    color(12)
    print "aint got nothin on this!"
+   inventory.remove_heart()
    enemy.sprite_id = 6
    local rising = tweens.make(enemy,'y',ofpy-10,7,tweens.easings.quadratic)
    rising.ease_out = true
@@ -127,7 +128,7 @@ function make_fight(inv)
    fighter.sprite_id = 0
    enemy.kill()
    kiss=false
-   local slide_out = tweens.make(win_heart,'x',fighter.x-28,12,tweens.easings.circular)
+   local slide_out = tweens.make(win_heart,'x',fighter.x-32,12,tweens.easings.circular)
    slide_out.ease_out = true
    slide_out.on_complete = function()
     win_heart.z = 120
@@ -139,6 +140,7 @@ function make_fight(inv)
     tweens.make(win_heart,'y',fighter.y,12,tweens.easings.circular)
    end
    tweens.make(win_heart,'scale',1,24,tweens.easings.quadratic).on_complete = function()
+    inventory.add_heart()
     win_heart.kill()
     fighter.sprite_id = 2
     color(7)
@@ -226,9 +228,12 @@ function make_fight(inv)
    print("behold the power...")
    local counter=0
    local hearts = {}
-   for i=1,6 do
+   for i=1,inventory.hearts_count do
     counter+=2
     local h = sprites.make(10,{x=fighter.x+9+counter,y=fighter.y-10+20*rnd(),z=100+counter})
+    h.before_draw = function()
+     pal(8,inventory.ring_color)
+    end
     h.centered = true
     tweens.make(h,'x',enemy.x,flr(20+6*rnd()),tweens.easings.cubic).on_complete = function()
      tweens.make(h,'x',enemy.x+20,5)

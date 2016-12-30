@@ -180,8 +180,22 @@ tweens = {
   cubic = function(k)
    return k*k*k
   end,
-  circular = function(k)
+  circular = function(k) -- this might technically be "sine"
    return 1-cos(k/4)
+  end,
+  bounce_out = function(k) -- from https://github.com/photonstorm/phaser/blob/v2.4.6/src/tween/Easing.js
+   if k < ( 1 / 2.75 ) then
+    return(7.5625 * k * k)
+   elseif k < ( 2 / 2.75 ) then
+    k -=  1.5 / 2.75
+    return(7.5625 * k * k + 0.75)
+   elseif k < ( 2.5 / 2.75 ) then
+    k -= 2.25 / 2.75
+    return(7.5625 * k * k + 0.9375)
+   else
+    k -= 2.625 / 2.75
+    return(7.5625 * k * k + 0.984375)
+   end
   end,
   merge = function(ease_in,ease_out)
    return function(k)
@@ -243,14 +257,40 @@ function make_inventory()
  local ring_color_map = {14,13,9,8}
  local shoes_color_map = {4,5,7,8}
  local equipped_items = {1,1,1,1}
+ local owned_hearts = {}
  local obj = {
   store_sprite_map = {41,39,40,38},
   dress_light_color = 11,
   dress_dark_color = 3,
   ring_color = 14,
   lipstick_color = 8,
-  shoes_color = 4
+  shoes_color = 4,
+  hearts_count = 0,
+  equipped_items = equipped_items
  }
+
+ obj.add_heart = function()
+  local heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})
+  heart.centered=true
+  tweens.make(heart,'y',5,30,tweens.easings.bounce_out)
+  add(owned_hearts,heart)
+  obj.hearts_count += 1
+ end
+
+ obj.remove_heart = function()
+  local heart = owned_hearts[obj.hearts_count]
+  owned_hearts[obj.hearts_count] = nil
+  obj.hearts_count-= 1
+  heart.before_draw = function()
+   pal(8,1)
+  end
+  heart.z = 220
+  tweens.make(heart,'scale',3,10).on_complete = heart.kill
+ end
+
+ for i=0,2,1 do
+  obj.add_heart()
+ end
 
  local function update_ring(index)
   obj.ring_color = ring_color_map[index]
@@ -270,6 +310,17 @@ function make_inventory()
  end
 
  obj.update_item = function(store_index, item_index)
+  local price = obj.price_by_store_and_selection(store_index,item_index)
+  if price < 0 then
+   for i=0,price+1,-1 do
+    obj.add_heart()
+   end
+  elseif price > 0 then
+   for i=0,price-1,1 do
+    obj.remove_heart()
+   end
+  end
+
   equipped_items[store_index] = item_index
   if store_index == 1 then
    update_dress(item_index)
@@ -311,6 +362,23 @@ function make_inventory()
   pal(8,obj.ring_color)
  end
 
+ obj.price_by_store_and_selection = function(store_i,selection_i)
+  local selection = equipped_items[store_i]
+  if selection == selection_i then
+   return 0
+  else
+   return selection_i - selection + 1
+  end
+ end
+
+ obj.number_of_affordable_by_store = function(store_i)
+  local net_funds = equipped_items[store_i] + obj.hearts_count - 1
+  if net_funds > 4 then
+   return 4
+  else
+   return net_funds
+  end
+ end
 
  return obj
 end
@@ -389,10 +457,34 @@ function make_store(inv)
   return true
  end
 
+ local function draw_hearts(y, selection_index)
+  if inv.equipped_items[store_index] == selection_index then
+   cursor(54,y+1)
+   color(7)
+   print("owned")
+  else
+   price = inv.price_by_store_and_selection(store_index,selection_index)
+   if price == 0 then
+    cursor(56,y+1)
+    color(7)
+    print("free")
+   else
+    pal()
+    if price < 0 then
+     price = 0-price
+     pal(8,11)
+    end
+    for i=0,price-1,1 do
+     zspr(10,1,1,60-8*(price-1)/2+8*i,y-1,1,false)
+    end
+   end
+  end
+ end
+
  local function draw_store()
   if started then
    local colors={6,6,6,6}
-   colors[menu.selection_index+1]=8
+   colors[menu.selection_index+1]=14
    rectfill(8,22,119,105,0)
    rectfill(9,23,118,104,7)
    rectfill(10,24,117,103,0)
@@ -416,18 +508,10 @@ function make_store(inv)
    inv.remap_store_colors(store_index,4)
    zspr(store_sprite_index,1,1,82,68,4,false)
    pal()
-   cursor(53,32)
-   color(7)
-   print("hello")
-   cursor(53,51)
-   color(7)
-   print("hello")
-   cursor(53,72)
-   color(7)
-   print("hello")
-   cursor(53,91)
-   color(7)
-   print("hello")
+   draw_hearts(32,1)
+   draw_hearts(51,2)
+   draw_hearts(72,3)
+   draw_hearts(91,4)
    return true
   else
    return false
@@ -438,7 +522,7 @@ function make_store(inv)
   update = update_store,
   draw = draw_store,
   start = function(store_i)
-   menu = make_menu(4)
+   menu = make_menu(inv.number_of_affordable_by_store(store_i))
    store_index = store_i
    store_sprite_index = inv.store_sprite_map[store_index]
    started = true
@@ -510,6 +594,7 @@ function make_fight(inv)
    fighter.x-= 2
    color(12)
    print "aint got nothin on this!"
+   inventory.remove_heart()
    enemy.sprite_id = 6
    local rising = tweens.make(enemy,'y',ofpy-10,7,tweens.easings.quadratic)
    rising.ease_out = true
@@ -579,7 +664,7 @@ function make_fight(inv)
    fighter.sprite_id = 0
    enemy.kill()
    kiss=false
-   local slide_out = tweens.make(win_heart,'x',fighter.x-28,12,tweens.easings.circular)
+   local slide_out = tweens.make(win_heart,'x',fighter.x-32,12,tweens.easings.circular)
    slide_out.ease_out = true
    slide_out.on_complete = function()
     win_heart.z = 120
@@ -591,6 +676,7 @@ function make_fight(inv)
     tweens.make(win_heart,'y',fighter.y,12,tweens.easings.circular)
    end
    tweens.make(win_heart,'scale',1,24,tweens.easings.quadratic).on_complete = function()
+    inventory.add_heart()
     win_heart.kill()
     fighter.sprite_id = 2
     color(7)
@@ -678,9 +764,12 @@ function make_fight(inv)
    print("behold the power...")
    local counter=0
    local hearts = {}
-   for i=1,6 do
+   for i=1,inventory.hearts_count do
     counter+=2
     local h = sprites.make(10,{x=fighter.x+9+counter,y=fighter.y-10+20*rnd(),z=100+counter})
+    h.before_draw = function()
+     pal(8,inventory.ring_color)
+    end
     h.centered = true
     tweens.make(h,'x',enemy.x,flr(20+6*rnd()),tweens.easings.cubic).on_complete = function()
      tweens.make(h,'x',enemy.x+20,5)
@@ -969,7 +1058,7 @@ function update_walkabout()
 end
 
 function _init()
- player = sprites.make(0,{x=64,y=64})
+ player = sprites.make(0,{x=56,y=56})
  player.before_draw = function()
   inventory.remap_girl_colors()
  end
@@ -1034,14 +1123,14 @@ b3c5f445f4454445f445f33b34b5f4534b35f445f4454b34594774959f949f949dc7c7d40ee02002
 34bf4443f443f44bf44f4343543f43b343bff443f44f4335354994359f949f949d7c7cd420022212221222219f949f9422122221977777793333383533339335
 333f4f43ff4bf443fb4f43b333bf433545b3f44bff43b444334994539f949f949dddddd42e122212221222e149454945221222e1966776693383333535333353
 3b3543bb535434353b3f43b343b54b334445b34334344454445993359f949f949f949f94e00ee00eee0eee0033533533ee0eee00977777793533535335335353
-3535534454544532455353545655565500000000f555550499999999222222221111111133333333777777767777777677777776e7e2e7e20000000044553554
-543315453455345354353444656565650f000f00f64455049aaaaaa92eeeeee21cc77cc13b2bbb237775777677757776777577767e727e7200000000435ff534
-54435343535353445443535456505650f440f440f44445049aaaaaa9288eeee21c7777c13b2bbb23775557767755777677755776e7e2e7e2000000003335f453
-44354544553545533453544505000500444444f4f44445049aa8a8892888aee21aa77aa132e2b2e375555576755555767555557622202220000000005333f435
-35344445432343353535344456555655f4444444f44445049aaa88892e899ae21acccca13eee2ee3777577767755777677755776e7e2e7e2000000005353f453
-d33453545355453d34453d3565656565f440f440f64440049a8888092e9999a21aaccaa13bbbbbb37775777677757776777577767e727e72000000003533f433
-45455344455445435544534456505650ff40f440f440000598888a092ee999921caaaac13bbbbbb3777777767777777677777776e7e2e7e200000000433bf455
-54445445354534454545335405000500000000002220222099999999222222221111111133333333666666666666666666666666222022200000000043bff445
+3535534454544532455353545655565500000000f555550499999999222222221111111133333333777777767777777677777776121112110000000044553554
+543315453455345354353444656565650f000f00f64455049aaaaaa92eeeeee21cc77cc13b2bbb237775777677757776777577762121212100000000435ff534
+54435343535353445443535456505650f440f440f44445049aaaaaa9288eeee21c7777c13b2bbb2377555776775577767775577612101210000000003335f453
+44354544553545533453544505000500444444f4f44445049aa8a8892888aee21aa77aa132e2b2e375555576755555767555557601000100000000005333f435
+35344445432343353535344456555655f4444444f44445049aaa88892e899ae21acccca13eee2ee377757776775577767775577612111211000000005353f453
+d33453545355453d34453d3565656565f440f440f64440049a8888092e9999a21aaccaa13bbbbbb377757776777577767775777621212121000000003533f433
+45455344455445435544534456505650ff40f440f440000598888a092ee999921caaaac13bbbbbb37777777677777776777777761210121000000000433bf455
+54445445354534454545335405000500000000002220222099999999222222221111111133333333666666666666666666666666010001000000000043bff445
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

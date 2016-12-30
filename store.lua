@@ -71,10 +71,34 @@ function make_store(inv)
   return true
  end
 
+ local function draw_hearts(y, selection_index)
+  if inv.equipped_items[store_index] == selection_index then
+   cursor(54,y+1)
+   color(7)
+   print("owned")
+  else
+   price = inv.price_by_store_and_selection(store_index,selection_index)
+   if price == 0 then
+    cursor(56,y+1)
+    color(7)
+    print("free")
+   else
+    pal()
+    if price < 0 then
+     price = 0-price
+     pal(8,11)
+    end
+    for i=0,price-1,1 do
+     zspr(10,1,1,60-8*(price-1)/2+8*i,y-1,1,false)
+    end
+   end
+  end
+ end
+
  local function draw_store()
   if started then
    local colors={6,6,6,6}
-   colors[menu.selection_index+1]=8
+   colors[menu.selection_index+1]=14
    rectfill(8,22,119,105,0)
    rectfill(9,23,118,104,7)
    rectfill(10,24,117,103,0)
@@ -98,18 +122,10 @@ function make_store(inv)
    inv.remap_store_colors(store_index,4)
    zspr(store_sprite_index,1,1,82,68,4,false)
    pal()
-   cursor(53,32)
-   color(7)
-   print("hello")
-   cursor(53,51)
-   color(7)
-   print("hello")
-   cursor(53,72)
-   color(7)
-   print("hello")
-   cursor(53,91)
-   color(7)
-   print("hello")
+   draw_hearts(32,1)
+   draw_hearts(51,2)
+   draw_hearts(72,3)
+   draw_hearts(91,4)
    return true
   else
    return false
@@ -120,7 +136,7 @@ function make_store(inv)
   update = update_store,
   draw = draw_store,
   start = function(store_i)
-   menu = make_menu(4)
+   menu = make_menu(inv.number_of_affordable_by_store(store_i))
    store_index = store_i
    store_sprite_index = inv.store_sprite_map[store_index]
    started = true

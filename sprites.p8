@@ -216,8 +216,22 @@ tweens = {
   cubic = function(k)
    return k*k*k
   end,
-  circular = function(k)
+  circular = function(k) -- this might technically be "sine"
    return 1-cos(k/4)
+  end,
+  bounce_out = function(k) -- from https://github.com/photonstorm/phaser/blob/v2.4.6/src/tween/Easing.js
+   if k < ( 1 / 2.75 ) then
+    return(7.5625 * k * k)
+   elseif k < ( 2 / 2.75 ) then
+    k -=  1.5 / 2.75
+    return(7.5625 * k * k + 0.75)
+   elseif k < ( 2.5 / 2.75 ) then
+    k -= 2.25 / 2.75
+    return(7.5625 * k * k + 0.9375)
+   else
+    k -= 2.625 / 2.75
+    return(7.5625 * k * k + 0.984375)
+   end
   end,
   merge = function(ease_in,ease_out)
    return function(k)

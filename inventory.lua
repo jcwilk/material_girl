@@ -6,14 +6,40 @@ function make_inventory()
  local ring_color_map = {14,13,9,8}
  local shoes_color_map = {4,5,7,8}
  local equipped_items = {1,1,1,1}
+ local owned_hearts = {}
  local obj = {
   store_sprite_map = {41,39,40,38},
   dress_light_color = 11,
   dress_dark_color = 3,
   ring_color = 14,
   lipstick_color = 8,
-  shoes_color = 4
+  shoes_color = 4,
+  hearts_count = 0,
+  equipped_items = equipped_items
  }
+
+ obj.add_heart = function()
+  local heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})
+  heart.centered=true
+  tweens.make(heart,'y',5,30,tweens.easings.bounce_out)
+  add(owned_hearts,heart)
+  obj.hearts_count += 1
+ end
+
+ obj.remove_heart = function()
+  local heart = owned_hearts[obj.hearts_count]
+  owned_hearts[obj.hearts_count] = nil
+  obj.hearts_count-= 1
+  heart.before_draw = function()
+   pal(8,1)
+  end
+  heart.z = 220
+  tweens.make(heart,'scale',3,10).on_complete = heart.kill
+ end
+
+ for i=0,2,1 do
+  obj.add_heart()
+ end
 
  local function update_ring(index)
   obj.ring_color = ring_color_map[index]
@@ -33,6 +59,17 @@ function make_inventory()
  end
 
  obj.update_item = function(store_index, item_index)
+  local price = obj.price_by_store_and_selection(store_index,item_index)
+  if price < 0 then
+   for i=0,price+1,-1 do
+    obj.add_heart()
+   end
+  elseif price > 0 then
+   for i=0,price-1,1 do
+    obj.remove_heart()
+   end
+  end
+
   equipped_items[store_index] = item_index
   if store_index == 1 then
    update_dress(item_index)
@@ -74,6 +111,23 @@ function make_inventory()
   pal(8,obj.ring_color)
  end
 
+ obj.price_by_store_and_selection = function(store_i,selection_i)
+  local selection = equipped_items[store_i]
+  if selection == selection_i then
+   return 0
+  else
+   return selection_i - selection + 1
+  end
+ end
+
+ obj.number_of_affordable_by_store = function(store_i)
+  local net_funds = equipped_items[store_i] + obj.hearts_count - 1
+  if net_funds > 4 then
+   return 4
+  else
+   return net_funds
+  end
+ end
 
  return obj
 end
