@@ -2,6 +2,8 @@
 -- depends on:
 -- store - global var to store current store
 -- exit_door() - walkabout method
+-- zspr - sprite helper function
+-- player - global
 function make_menu(item_length)
  local obj
  local move_pressed=true
@@ -61,7 +63,7 @@ function make_store(inv)
 
   if menu.selected then
    inv.update_item(store_index, menu.selection_index+1)
-   py=exit_door_y(px,py)
+   player.y=exit_door_y(player.x,player.y)
    store=make_store(inv)
    return false
   end

@@ -15,16 +15,87 @@ function zspr(n,w,h,dx,dy,dz,zflp)
  sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
 end
 
+-- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
+function heapsort(t, cmp)
+ local n = #t
+ if n <= 1 then
+  return
+ end
+ local i, j, temp
+ local lower = flr(n / 2) + 1
+ local upper = n
+ cmp = cmp or function(a,b)
+  if a < b then
+   return -1
+  elseif a == b then
+   return 0
+  else
+   return 1
+  end
+ end
+ while 1 do
+  if lower > 1 then
+   lower -= 1
+   temp = t[lower]
+  else
+   temp = t[upper]
+   t[upper] = t[1]
+   upper -= 1
+   if upper == 1 then
+    t[1] = temp
+    return
+   end
+  end
+
+  i = lower
+  j = lower * 2
+  while j <= upper do
+   if j < upper and cmp(t[j], t[j+1]) < 0 then
+    j += 1
+   end
+   if cmp(temp, t[j]) < 0 then
+    t[i] = t[j]
+    i = j
+    j += i
+   else
+    j = upper + 1
+   end
+  end
+  t[i] = temp
+ end
+end
+
 -- sprite stuffs
 make_pool = function()
  local store = {}
  local id_counter = 0
+ local each = function(f)
+  for v in all(store) do
+   if v.alive then
+    f(v)
+   end
+  end
+ end
  return {
-  each = function(f)
-   for v in all(store) do
-    if v.alive then
-     f(v)
+  each = each,
+  each_in_order = function(key, default, f)
+   local sorted = {}
+   each(function(v)
+    add(sorted,v)
+   end)
+   heapsort(sorted,function(a,b)
+    a = a[key] or default
+    b = b[key] or default
+    if a < b then
+     return -1
+    elseif a == b then
+     return 0
+    else
+     return 1
     end
+   end)
+   for _,val in pairs(sorted) do
+    f(val)
    end
   end,
   store = store,
@@ -60,17 +131,40 @@ sprites = {
   if properties.flip == nil then
    properties.flip = false
   end
+  if properties.rounded_position != nil then
+   properties.rounded_position = true
+  end
+  if properties.rounded_scale != nil then
+   properties.rounded_scale = true
+  end
   sprites.pool.make(properties)
   return properties
  end,
  draw = function()
-  sprites.pool.each(function(s)
-   local rounded_scale = s.scale--flr(s.scale+0.5)
-   if s.centered then
-    zspr(s.sprite_id,1,1,s.x-4*rounded_scale,s.y-4*rounded_scale,rounded_scale,s.flip)
-   else
-    zspr(s.sprite_id,1,1,s.x,s.y,rounded_scale,s.flip)
+  sprites.pool.each_in_order('z',0,function(s)
+   if s.before_draw then
+    s.before_draw()
    end
+
+   local x = s.x
+   local y = s.y
+   local scale = s.scale
+
+   if s.rounded_scale then
+    scale = flr(scale+0.5)
+   end
+   if s.centered then
+    x-= 4*scale
+    y-= 4*scale
+   end
+   if s.rounded_position then
+    x = flr(x+0.5)
+    y = flr(y+0.5)
+   end
+
+   zspr(s.sprite_id,1,1,x,y,scale,s.flip)
+
+   pal()
   end)
  end
 }
@@ -85,6 +179,14 @@ tweens = {
   end,
   cubic = function(k)
    return k*k*k
+  end,
+  circular = function(k)
+   return 1-cos(k/4)
+  end,
+  merge = function(ease_in,ease_out)
+   return function(k)
+    return 1 - ease_out(1-ease_in(k))
+   end
   end
  },
  pool = make_pool(),
@@ -103,11 +205,18 @@ tweens = {
     return
    end
    count+= 1
-   if tween.ease_out then
-    sprite[property] = initial + diff*(1-(easing(1-count/time)))
+   local out
+   if tween.ease_in_and_out then
+    out = initial + diff*(1-(easing(1-easing(count/time))))
+   elseif tween.ease_out then
+    out = initial + diff*(1-(easing(1-count/time)))
    else
-    sprite[property] = initial + diff*easing(count/time)
+    out = initial + diff*easing(count/time)
    end
+   if tween.rounding then
+    out = flr(out+0.5)
+   end
+   sprite[property] = out
    if count >= time then
     tween.kill()
     if tween.on_complete then
@@ -211,6 +320,8 @@ end
 -- depends on:
 -- store - global var to store current store
 -- exit_door() - walkabout method
+-- zspr - sprite helper function
+-- player - global
 function make_menu(item_length)
  local obj
  local move_pressed=true
@@ -270,7 +381,7 @@ function make_store(inv)
 
   if menu.selected then
    inv.update_item(store_index, menu.selection_index+1)
-   py=exit_door_y(px,py)
+   player.y=exit_door_y(player.x,player.y)
    store=make_store(inv)
    return false
   end
@@ -340,6 +451,8 @@ end
 
 
 -- START EXT fight.lua
+-- depends on:
+-- zspr - sprite helper function
 ----
 -- Fight factory - call this to generate a new fight
 ----
@@ -350,9 +463,10 @@ end
 -- when the fight is finished it will deactivate itself
 -- when you want a new fight, discard the old object and create a new one
 function make_fight(inv)
- local obj, fanim, first_draw, hide_enemy, kiss --misc fight state
- local fpx, fpy, ofpx, ofpy, fflp, fspr --player state
- local epx, epy, oepx, ehp, edef, eflp, espr --enemy state
+ local obj, fanim, first_draw, kiss --misc fight state
+ local ofpx, ofpy --player state
+ local oepx, ehp, edef --enemy state
+ local fighter, enemy --sprites
 
  ----
  -- fighting animation update logic
@@ -381,104 +495,66 @@ function make_fight(inv)
  end
 
  local function exit_battle()
-  fpx=ofpx
-  px=114
-  flp=true
+  enemy.kill()
+  fighter.kill()
+  sprites.make(player.sprite_id,player).flip = true
   obj.active = false
  end
 
  local function fenemy_attack()
-  eflp=false
-  espr=5
-  local echarging=true
-  local taunt_count=0
-  local depy
+  enemy.flip=false
+  enemy.sprite_id=5
 
-  fanim = function()
-   if echarging then
-    epx-=4
-    if epx<40 then
-     echarging=false
-     etaunting=true
-     etauntleft=false
-     fspr=2
-     fpx-=2
-     depy=4
-     taunt_count=2
-     color(12)
-     print "aint got nothin on this!"
-    end
-   elseif etaunting then
-    if etauntleft then
-     epx-=4
-     epy-=depy
-     depy-=1
-     if epy>ofpy then
-      epy=ofpy
-      etauntleft=false
-      depy=4
-      fpx-=1
-      if taunt_count > 0 then
-       taunt_count-=1
-      else
-       etaunting=false
-      end
-     end
-    else
-     epx+=4
-     epy-=depy
-     depy-=1
-     if epy>ofpy then
-      etauntleft=true
-      depy=3
-      epy=ofpy
-     end
-    end
-   else
-    espr=6
-    epx+=4
-    if epx>=oepx then
-     espr=4
-     epx=oepx
-     fanim=false
-     fspr=0
-     fpx=ofpx
-     color(14)
-     print "how hurtful..."
-    end
+  tweens.make(enemy,'x',fighter.x+24,10,tweens.easings.quadratic).on_complete = function()
+   fighter.sprite_id = 2
+   fighter.x-= 2
+   color(12)
+   print "aint got nothin on this!"
+   enemy.sprite_id = 6
+   local rising = tweens.make(enemy,'y',ofpy-10,7,tweens.easings.quadratic)
+   rising.ease_out = true
+   rising.on_complete = function()
+    tweens.make(enemy,'y',ofpy,7,tweens.easings.quadratic)
+   end
+   local pull_back = tweens.make(enemy,'x',oepx,14,tweens.easings.quadratic)
+   pull_back.ease_out=true
+   pull_back.on_complete = function()
+    enemy.sprite_id = 4
+    fanim = false
+    fighter.sprite_id = 0
+    fighter.x=ofpx
+    color(14)
+    print "how hurtful..."
    end
   end
  end
 
  function fintro()
-  fpx=-20
-  fpy=ofpy
-  epx=128
-  epy=ofpy
-
-  local enemy_intro = false
+  player.kill()
+  fighter = sprites.make(0,{x=-20,y=ofpy,z=100})
+  fighter.before_draw = function()
+   inventory.remap_girl_colors()
+  end
+  fighter.centered = true
 
   fanim = function()
-   if enemy_intro then
-    epx-=flr((epx-oepx)/10)+1
-    espr=4+flr(epx/8)%3
-    if epx < oepx then
-     epx=oepx
-     espr=4
-     fanim=false
-     color(7)
-     print("what a beautiful baker! <3")
-    end
-   else
-    fpx+=flr((ofpx-fpx)/12)+1
-    fspr=flr(fpx/5)%3
-    if(fpx>=ofpx) then
-     fpx=ofpx
-     fspr=0
-     color(7)
-     print("wow, a void!")
-     enemy_intro=true
-    end
+  end
+
+  tweens.make(fighter,'scale',4,20,tweens.easings.quadratic).slide_out = true
+  local slide_in = tweens.make(fighter,'x',ofpx,20,tweens.easings.quadratic)
+  slide_in.ease_out = true
+  slide_in.on_complete = function()
+   color(7)
+   print("wow, a void!")
+   enemy = sprites.make(4,{x=128,y=ofpy,z=50})
+   enemy.centered = true
+   tweens.make(enemy,'scale',4,20,tweens.easings.quadratic).ease_out = true
+   local e_slide_in = tweens.make(enemy,'x',oepx,20,tweens.easings.quadratic)
+   e_slide_in.ease_out = true
+   e_slide_in.on_complete = function()
+    color(7)
+    print("what a beautiful baker! <3")
+    fanim = false
    end
   end
  end
@@ -486,67 +562,94 @@ function make_fight(inv)
  local function fwin()
   print "noooo"
   local winwait=60
-
+  local win_heart = sprites.make(10,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
+  local tweening = false
   fanim = function()
-   if winwait<0 then
-    color(7)
-    exit_battle()
-   elseif winwait<20 then
-    hide_enemy=true
-   else
-    hide_enemy=flr(((80-winwait)/20)^2) % 2 == 0
+   if winwait>0 then
+    if flr(((80-winwait)/20)^2) % 2 == 0 then
+     enemy.z = 20
+    else
+     enemy.z = 50
+    end
+    winwait-=1
    end
-   winwait-=1
+  end
+  local float = tweens.make(enemy,'y',enemy.y-4,50,tweens.easings.quadratic)
+  float.on_complete = function()
+   fighter.sprite_id = 0
+   enemy.kill()
+   kiss=false
+   local slide_out = tweens.make(win_heart,'x',fighter.x-28,12,tweens.easings.circular)
+   slide_out.ease_out = true
+   slide_out.on_complete = function()
+    win_heart.z = 120
+    tweens.make(win_heart,'x',fighter.x,12,tweens.easings.circular)
+   end
+   local slide_down = tweens.make(win_heart,'y',fighter.y+20,12,tweens.easings.circular)
+   slide_down.ease_out = true
+   slide_down.on_complete = function()
+    tweens.make(win_heart,'y',fighter.y,12,tweens.easings.circular)
+   end
+   tweens.make(win_heart,'scale',1,24,tweens.easings.quadratic).on_complete = function()
+    win_heart.kill()
+    fighter.sprite_id = 2
+    color(7)
+    local jump = tweens.make(fighter,'y',fighter.y-5,14,tweens.easings.cubic)
+    jump.ease_out = true
+    jump.on_complete = exit_battle
+   end
   end
  end
 
  local function fattack()
-  local charging=true
+  -- local charging=true
   clear_text()
   color(14)
   print "*whistles*"
   local attack_success= edef < 1
+  local pull_back
+
   fanim = function()
-   if charging then
-    fspr=flr(fpx/12)%3
-    fpx+=4
-    if fpx>=60 then
-     fpx=60
-     charging=false
-     if attack_success then
-      color(14)
-      print "mwa! :*"
-      kiss=flr(rnd()*5+11)
-      ehp-=4
-      epx+=5
-      espr=6
-     else
-      eflp=true
-      epx+=8
-      color(7)
-      print "cold shoulder!"
-      color(12)
-      print "i'm sorry but i..."
-      print "think you got the wrong idea"
-     end
-    end
+    fighter.sprite_id = flr(fighter.x/6)%3
+  end
+
+  approach_easing = tweens.easings.merge(tweens.easings.quadratic,tweens.easings.cubic)
+  local approach = tweens.make(fighter,'x',enemy.x-16,20,approach_easing)
+  --approach.ease_in_and_out = true
+  approach.on_complete = function()
+   fanim = function()
+   end
+   if attack_success then
+    color(14)
+    print "mwa! :*"
+    kiss=flr(rnd()*5+11)
+    ehp-=4
+    enemy.x+=8
+    enemy.sprite_id=6
    else
-    fspr=2
-    fpx-=4
-    if fpx<=ofpx then
-     if ehp<=0 then
-      fwin()
+    enemy.flip=true
+    enemy.x+=8
+    color(7)
+    print "cold shoulder!"
+    color(12)
+    print "i'm sorry but i..."
+    print "think you got the wrong idea"
+   end
+   if ehp <= 0 then
+    fwin()
+   else
+    local recede = tweens.make(fighter,'x',ofpx,12,tweens.easings.quadratic)
+    fighter.sprite_id = 2
+    recede.ease_in_and_out=true
+    recede.on_complete = function()
+     fighter.sprite_id=0
+     kiss=false
+     enemy.sprite_id=4
+     enemy.x=oepx
+     if attack_success then
+      fanim=false
      else
-      fpx=ofpx
-      fspr=0
-      kiss=false
-      espr=4
-      epx=oepx
-      if attack_success then
-       fanim=false
-      else
-       fenemy_attack()
-      end
+      fenemy_attack()
      end
     end
    end
@@ -554,73 +657,68 @@ function make_fight(inv)
  end
 
  local function fmagic()
-  local dfpy=4
-  local magret=false
-  local magwait=false
-  fspr=1
+  local spinx = fighter.x+20
+  fighter.sprite_id = 1
   clear_text()
 
   fanim = function()
-   if magwait then
-    fspr=0
-    if magwait>0 then
-     if magwait<20 then
-      for h in all(hearts) do
-       if h.x and h.x > fpx+20+magwait then
-        h.x+=8--flr(((20-magwait)/6)^2.5)
-        if h.x>epx+30 then
-         h.x=false
-         epx+=1
-         espr=6
-        end
-       end
-      end
-     end
-     fspr=2
-     if flr(((50-magwait)/25)^3) % 2 == 0 then
-      fflp=true
-      fpx=magwaitx
-     else
-      fflp=false
-      fpx=magwaitx-8
-     end
+  end
 
-     magwait-=1
-     return
+  local rising = tweens.make(fighter,'y',ofpy-10,5)
+  rising.ease_out = true
+  rising.on_complete = function()
+   tweens.make(fighter,'y',ofpy,5)
+  end
+  tweens.make(fighter,'scale',5,10)
+  tweens.make(fighter,'x',ofpx+20,10).on_complete = function()
+   fighter.sprite_id=2
+   magwait=30
+   --magwaitx=fpx
+   color(14)
+   print("behold the power...")
+   local counter=0
+   local hearts = {}
+   for i=1,6 do
+    counter+=2
+    local h = sprites.make(10,{x=fighter.x+9+counter,y=fighter.y-10+20*rnd(),z=100+counter})
+    h.centered = true
+    tweens.make(h,'x',enemy.x,flr(20+6*rnd()),tweens.easings.cubic).on_complete = function()
+     tweens.make(h,'x',enemy.x+20,5)
+     tweens.make(h,'scale',4,5).on_complete = h.kill
+    end
+    add(hearts,h)
+   end
+   fanim = function()
+    magwait-=1
+
+    for _,h in pairs(hearts) do
+     if h.alive and h.z > 100 and h.x > enemy.x then
+      h.z-= 100
+     end
+    end
+
+    if flr(((50-magwait)/25)^3) % 2 == 0 then
+     fighter.flip=true
+     fighter.x = spinx+12
     else
+     fighter.flip=false
+     fighter.x = spinx
+    end
+    if magwait <= 0 then
+     fighter.x = spinx
+     fighter.flip=false
      color(14)
      print("of my loveliness!")
-     magwait=false
-     magret=true
-    end
-   end
-   if magret then
-    fspr=2
-    fpx-=4
-    if fpx<=ofpx then
-     fspr=0
-     fpx=ofpx
-     fanim=false
-     epx=oepx
-     espr=4
-     edef-=1
-    end
-    return
-   end
-   fpy-=dfpy
-   dfpy-=1
-   fpx+=3
-   if fpy>=ofpy then
-    fpy=ofpy
-    magwait=30
-    magwaitx=fpx
-    color(14)
-    print("behold the power...")
-    local counter=0
-    for h in all(hearts) do
-     counter+=2
-     h.x=fpx+25+counter--15*rnd()
-     h.y=fpy+5+20*rnd()
+     fanim = function()
+     end
+     tweens.make(fighter,'scale',4,10)
+     tweens.make(fighter,'x',ofpx,10,tweens.easings.cubic).on_complete = function()
+      fighter.sprite_id = 0
+      fanim=false
+      enemy.x = oepx
+      enemy.sprite_id=4
+      edef-=1
+     end
     end
    end
   end
@@ -630,12 +728,12 @@ function make_fight(inv)
   clear_text()
   color(14)
   print "screw this!"
-  fspr=2
-  fanim = function()
-   fpx-=3
-   if fpx<=-30 then
+  fighter.sprite_id = 2
+  tweens.make(fighter,'x',-16,20,tweens.easings.quadratic).on_complete = function()
     exit_battle()
-   end
+  end
+  tweens.make(fighter,'scale',1,20,tweens.easings.quadratic)
+  fanim = function()
   end
  end
 
@@ -687,42 +785,11 @@ function make_fight(inv)
   end
  end
 
- function draw_fighter()
-  local scale
-
-  inv.remap_girl_colors()
-  if fpx <= 0 then
-   scale = 1
-  else --if fpx < ofpx then
-   scale = 3*fpx/ofpx+1
-  --else
-   --scale = 4
-  end
-  sprites.make(fspr,{x = fpx-10, y = fpy+(12*(4-scale)/3)})
-
-  zspr(fspr,1,1,fpx,fpy+(12*(4-scale)/3),scale,fflp)
-  pal()
- end
-
- function draw_enemy()
-  local scale
-  if not hide_enemy then
-   if epx >= 120 then
-    scale = 1
-   elseif epx > oepx then
-    scale = 3*(120-epx)/(120-oepx)+1
-   else
-    scale = 4
-   end
-   zspr(espr,1,1,epx,epy+(12*(4-scale)/3),scale,eflp)
-  end
- end
-
  function draw_kiss()
   if kiss then
    if not kissx then
-    kissx=epx+10+rnd()*10
-    kissy=epy+2+rnd()*10
+    kissx=enemy.x-6+rnd()*10
+    kissy=enemy.y-14+rnd()*10
    end
    inv.remap_kiss()
    spr(kiss,kissx,kissy)
@@ -731,22 +798,6 @@ function make_fight(inv)
    kissx=false
    kissy=false
   end
- end
-
- function draw_hearts(fg)
-  local scale
-  inv.remap_hearts()
-  for h in all(hearts) do
-   if h.x then
-    if not fg and h.x-4 > epx then
-     scale = (h.x-epx)/4
-     zspr(10,1,1,h.x-8,h.y-4*(scale-1),scale)
-    elseif fg then
-     spr(10,h.x,h.y)
-    end
-   end
-  end
-  pal()
  end
 
  local function draw_fight()
@@ -759,11 +810,8 @@ function make_fight(inv)
    --clear above text
    rectfill(0,0,127,69,0)
    draw_fui()
-   draw_fighter()
-   draw_hearts(false)
-   draw_enemy()
+   sprites.draw()
    draw_kiss()
-   draw_hearts(true)
    return true
   else
    return false
@@ -777,20 +825,15 @@ function make_fight(inv)
   start = function()
    first_draw=true
 
-   oepx=80
+   oepx=96
    ehp=10
    edef=1
    espr=4
 
-   ofpx=10
-   ofpy=10
+   ofpx=26
+   ofpy=26
    fspr=0
    fflp=false
-
-   hearts={}
-   for i=1,6 do
-    add(hearts,{})
-   end
 
    obj.active = true
    fintro()
@@ -877,8 +920,8 @@ function exit_door_y(x,y)
 end
 
 function update_walkabout()
- local x = px
- local y = py
+ local x = player.x
+ local y = player.y
  local moved = false
  local nflp
  if btn(0) then
@@ -889,22 +932,22 @@ function update_walkabout()
   nflp=false
   x=x+spd
  end
- if px != x and not sprite_collided(x,py) then
+ if player.x != x and not sprite_collided(x,player.y) then
   moved=true
-  px=x
-  flp=nflp
+  player.x=x
+  player.flip=nflp
  end
  if btn(2) then y=y-spd end
  if btn(3) then y=y+spd end
 
- local store_index = entered_door(px,y)
+ local store_index = entered_door(player.x,y)
  if store_index then
   moved=false
   store.start(store_index)
   return true
- elseif py != y and not sprite_collided(px,y) then
+ elseif player.y != y and not sprite_collided(player.x,y) then
   moved=true
-  py=y
+  player.y=y
  end
 
  if moved then
@@ -913,7 +956,7 @@ function update_walkabout()
    anim_t=0
    spri=spri+1
   end
-  if px > 119 then
+  if player.x > 119 then
    fighting=make_fight(inventory)
    fighting.start()
    return true
@@ -926,12 +969,12 @@ function update_walkabout()
 end
 
 function _init()
- px = 64
- py = 64
+ player = sprites.make(0,{x=64,y=64})
+ player.before_draw = function()
+  inventory.remap_girl_colors()
+ end
  spd=2
- spri=0
  anim_t=0
- flp=false
  inventory = make_inventory()
  fighting = make_fight(inventory)
  store = make_store(inventory)
@@ -944,6 +987,7 @@ function _init()
 end
 
 function _update()
+ tweens.advance()
  return fighting.update() or store.update() or update_walkabout()
 end
 
@@ -960,7 +1004,6 @@ function clear_text()
 end
 
 function _draw()
- sprites.draw()
  if fighting.draw() or store.draw() then
   return
  end
@@ -969,9 +1012,7 @@ function _draw()
  palt(0,false)
  map(0,0,0,0,128,128,1)
  palt()
- inventory.remap_girl_colors()
- spr(spri,px,py,1,1,flp)
- pal()
+ sprites.draw()
  map(0,0,0,0,128,128,4)
 end
 __gfx__

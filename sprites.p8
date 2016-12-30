@@ -2,6 +2,42 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 
+-- Adapted from https://rosettacode.org/wiki/Priority_queue#Lua
+-- make_pq = function()
+--  local pq = {}
+--  return {
+--   put = function(p,v)
+--    local q = pq[p]
+--    if not q then
+--     q = {first = 1, last = 0}
+--     pq[p] = q
+--    end
+--    q.last+= 1
+--    q[q.last] = v
+--   end,
+--   pop = function()
+--    local sorted = {}
+--    print("sorting")
+--    for p, q in pairs(pq) do
+--     print(p)
+--     add(sorted,p)
+--    end
+--    heapsort(sorted)
+--    for _,p in pairs(sorted) do
+--     q = pq[p]
+--     if q.first <= q.last then
+--      local v = q[q.first]
+--      q[q.first] = nil
+--      q.first+= 1
+--      return p, v
+--     else
+--      pq[p] = nil
+--     end
+--    end
+--   end
+--  }
+-- end
+
 -- START LIB
 --credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
 function zspr(n,w,h,dx,dy,dz,zflp)
@@ -15,16 +51,87 @@ function zspr(n,w,h,dx,dy,dz,zflp)
  sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
 end
 
+-- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
+function heapsort(t, cmp)
+ local n = #t
+ if n <= 1 then
+  return
+ end
+ local i, j, temp
+ local lower = flr(n / 2) + 1
+ local upper = n
+ cmp = cmp or function(a,b)
+  if a < b then
+   return -1
+  elseif a == b then
+   return 0
+  else
+   return 1
+  end
+ end
+ while 1 do
+  if lower > 1 then
+   lower -= 1
+   temp = t[lower]
+  else
+   temp = t[upper]
+   t[upper] = t[1]
+   upper -= 1
+   if upper == 1 then
+    t[1] = temp
+    return
+   end
+  end
+
+  i = lower
+  j = lower * 2
+  while j <= upper do
+   if j < upper and cmp(t[j], t[j+1]) < 0 then
+    j += 1
+   end
+   if cmp(temp, t[j]) < 0 then
+    t[i] = t[j]
+    i = j
+    j += i
+   else
+    j = upper + 1
+   end
+  end
+  t[i] = temp
+ end
+end
+
 -- sprite stuffs
 make_pool = function()
  local store = {}
  local id_counter = 0
+ local each = function(f)
+  for v in all(store) do
+   if v.alive then
+    f(v)
+   end
+  end
+ end
  return {
-  each = function(f)
-   for v in all(store) do
-    if v.alive then
-     f(v)
+  each = each,
+  each_in_order = function(key, default, f)
+   local sorted = {}
+   each(function(v)
+    add(sorted,v)
+   end)
+   heapsort(sorted,function(a,b)
+    a = a[key] or default
+    b = b[key] or default
+    if a < b then
+     return -1
+    elseif a == b then
+     return 0
+    else
+     return 1
     end
+   end)
+   for _,val in pairs(sorted) do
+    f(val)
    end
   end,
   store = store,
@@ -60,17 +167,40 @@ sprites = {
   if properties.flip == nil then
    properties.flip = false
   end
+  if properties.rounded_position != nil then
+   properties.rounded_position = true
+  end
+  if properties.rounded_scale != nil then
+   properties.rounded_scale = true
+  end
   sprites.pool.make(properties)
   return properties
  end,
  draw = function()
-  sprites.pool.each(function(s)
-   local rounded_scale = s.scale--flr(s.scale+0.5)
-   if s.centered then
-    zspr(s.sprite_id,1,1,s.x-4*rounded_scale,s.y-4*rounded_scale,rounded_scale,s.flip)
-   else
-    zspr(s.sprite_id,1,1,s.x,s.y,rounded_scale,s.flip)
+  sprites.pool.each_in_order('z',0,function(s)
+   if s.before_draw then
+    s.before_draw()
    end
+
+   local x = s.x
+   local y = s.y
+   local scale = s.scale
+
+   if s.rounded_scale then
+    scale = flr(scale+0.5)
+   end
+   if s.centered then
+    x-= 4*scale
+    y-= 4*scale
+   end
+   if s.rounded_position then
+    x = flr(x+0.5)
+    y = flr(y+0.5)
+   end
+
+   zspr(s.sprite_id,1,1,x,y,scale,s.flip)
+
+   pal()
   end)
  end
 }
@@ -85,6 +215,14 @@ tweens = {
   end,
   cubic = function(k)
    return k*k*k
+  end,
+  circular = function(k)
+   return 1-cos(k/4)
+  end,
+  merge = function(ease_in,ease_out)
+   return function(k)
+    return 1 - ease_out(1-ease_in(k))
+   end
   end
  },
  pool = make_pool(),
@@ -103,11 +241,18 @@ tweens = {
     return
    end
    count+= 1
-   if tween.ease_out then
-    sprite[property] = initial + diff*(1-(easing(1-count/time)))
+   local out
+   if tween.ease_in_and_out then
+    out = initial + diff*(1-(easing(1-easing(count/time))))
+   elseif tween.ease_out then
+    out = initial + diff*(1-(easing(1-count/time)))
    else
-    sprite[property] = initial + diff*easing(count/time)
+    out = initial + diff*easing(count/time)
    end
+   if tween.rounding then
+    out = flr(out+0.5)
+   end
+   sprite[property] = out
    if count >= time then
     tween.kill()
     if tween.on_complete then
@@ -129,7 +274,7 @@ tweens = {
 arrow = sprites.make(42,{x = 20,y = 20})
 
 function _init()
-
+ sprites.make(10,{x=10,y=10,z=5,scale=16})
 end
 
 hello = false
@@ -148,19 +293,29 @@ function _update()
   end
   local down = nil
   local left = function()
-   pal(8,13)
+   arrow.before_draw = function()
+    pal(8,13)
+   end
    tweens.make(arrow,'x',20,duration,easing).on_complete = down
   end
   local up = function()
-   pal(8,12)
+   arrow.before_draw = function()
+    pal(8,12)
+   end
+   arrow.z = 10
    tweens.make(arrow,'y',20,duration,easing).on_complete = left
   end
   local right = function()
-   pal(8,11)
+   arrow.before_draw = function()
+    pal(8,11)
+   end
+   arrow.z = -10
    tweens.make(arrow,'x',100,duration,easing).on_complete = up
   end
   down = function()
-   pal(8,14)
+   arrow.before_draw = function()
+    pal(8,14)
+   end
    tweens.make(arrow,'y',100,duration,easing).on_complete = right
   end
   down()
