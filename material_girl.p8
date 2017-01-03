@@ -142,6 +142,10 @@ sprites = {
  end,
  draw = function()
   sprites.pool.each_in_order('z',0,function(s)
+   if s.hide then
+    return
+   end
+
    if s.before_draw then
     s.before_draw()
    end
@@ -546,11 +550,12 @@ end
 -- draw() - perform draw step, returns false if inactive
 -- when the fight is finished it will deactivate itself
 -- when you want a new fight, discard the old object and create a new one
-function make_fight(inv)
+function make_fight()
  local obj, fanim, first_draw, kiss --misc fight state
  local ofpx, ofpy --player state
- local oepx, ehp, edef --enemy state
  local fighter, enemy --sprites
+ local enemy_data
+ local text_needs_clearing
 
  ----
  -- fighting animation update logic
@@ -590,26 +595,40 @@ function make_fight(inv)
   enemy.sprite_id=5
 
   tweens.make(enemy,'x',fighter.x+24,10,tweens.easings.quadratic).on_complete = function()
-   fighter.sprite_id = 2
-   fighter.x-= 2
-   color(12)
-   print "aint got nothin on this!"
-   inventory.remove_heart()
    enemy.sprite_id = 6
-   local rising = tweens.make(enemy,'y',ofpy-10,7,tweens.easings.quadratic)
-   rising.ease_out = true
-   rising.on_complete = function()
-    tweens.make(enemy,'y',ofpy,7,tweens.easings.quadratic)
-   end
-   local pull_back = tweens.make(enemy,'x',oepx,14,tweens.easings.quadratic)
-   pull_back.ease_out=true
-   pull_back.on_complete = function()
-    enemy.sprite_id = 4
-    fanim = false
-    fighter.sprite_id = 0
-    fighter.x=ofpx
+   local attack_result = enemy_data.attack_player()
+   if attack_result.success then
+    fighter.sprite_id = 2
+    fighter.x-= 2
+
+    local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,tweens.easings.quadratic)
+    rising.ease_out = true
+     rising.on_complete = function()
+     tweens.make(enemy,'y',enemy_data.base_y,7,tweens.easings.quadratic)
+    end
+    local pull_back = tweens.make(enemy,'x',enemy_data.base_x,14,tweens.easings.quadratic)
+    pull_back.ease_out=true
+    pull_back.on_complete = function()
+     enemy.sprite_id = 4
+     fanim = false
+     fighter.sprite_id = 0
+     fighter.x=ofpx
+     color(14)
+     print "how hurtful..."
+    end
+   else
     color(14)
-    print "how hurtful..."
+    print "not interested..."
+    fighter.flip=true
+    fighter.x -= 8
+    local pull_back = tweens.make(enemy,'x',enemy_data.base_x,14)
+    pull_back.ease_in_and_out = true
+    pull_back.on_complete = function()
+     enemy.sprite_id = 4
+     fighter.flip = false
+     fighter.x = ofpx
+     fanim=false
+    end
    end
   end
  end
@@ -631,14 +650,12 @@ function make_fight(inv)
   slide_in.on_complete = function()
    color(7)
    print("wow, a void!")
-   enemy = sprites.make(4,{x=128,y=ofpy,z=50})
-   enemy.centered = true
+   enemy.hide = false
    tweens.make(enemy,'scale',4,20,tweens.easings.quadratic).ease_out = true
-   local e_slide_in = tweens.make(enemy,'x',oepx,20,tweens.easings.quadratic)
+   local e_slide_in = tweens.make(enemy,'x',enemy_data.base_x,20,tweens.easings.quadratic)
    e_slide_in.ease_out = true
    e_slide_in.on_complete = function()
-    color(7)
-    print("what a beautiful baker! <3")
+    enemy_data.intro_speech()
     fanim = false
    end
   end
@@ -692,7 +709,6 @@ function make_fight(inv)
   clear_text()
   color(14)
   print "*whistles*"
-  local attack_success= edef < 1
   local pull_back
 
   fanim = function()
@@ -705,23 +721,18 @@ function make_fight(inv)
   approach.on_complete = function()
    fanim = function()
    end
-   if attack_success then
+   local attack_result = enemy_data.attack()
+   if attack_result.success then
     color(14)
     print "mwa! :*"
     kiss=flr(rnd()*5+11)
-    ehp-=4
     enemy.x+=8
     enemy.sprite_id=6
    else
     enemy.flip=true
     enemy.x+=8
-    color(7)
-    print "cold shoulder!"
-    color(12)
-    print "i'm sorry but i..."
-    print "think you got the wrong idea"
    end
-   if ehp <= 0 then
+   if enemy_data.hp <= 0 then
     fwin()
    else
     local recede = tweens.make(fighter,'x',ofpx,12,tweens.easings.quadratic)
@@ -731,8 +742,8 @@ function make_fight(inv)
      fighter.sprite_id=0
      kiss=false
      enemy.sprite_id=4
-     enemy.x=oepx
-     if attack_success then
+     enemy.x=enemy_data.base_x
+     if attack_result.success then
       fanim=false
      else
       fenemy_attack()
@@ -771,10 +782,7 @@ function make_fight(inv)
      pal(8,inventory.ring_color)
     end
     h.centered = true
-    tweens.make(h,'x',enemy.x,flr(20+6*rnd()),tweens.easings.cubic).on_complete = function()
-     tweens.make(h,'x',enemy.x+20,5)
-     tweens.make(h,'scale',4,5).on_complete = h.kill
-    end
+    h.flight_tween = tweens.make(h,'x',131,flr(15+16*rnd()),tweens.easings.cubic)
     add(hearts,h)
    end
    fanim = function()
@@ -782,6 +790,11 @@ function make_fight(inv)
 
     for _,h in pairs(hearts) do
      if h.alive and h.z > 100 and h.x > enemy.x then
+      enemy.x+=4
+      enemy.sprite_id = 6
+      h.flight_tween.kill()
+      tweens.make(h,'x',enemy.x+20,5)
+      tweens.make(h,'scale',4,5).on_complete = h.kill
       h.z-= 100
      end
     end
@@ -804,9 +817,9 @@ function make_fight(inv)
      tweens.make(fighter,'x',ofpx,10,tweens.easings.cubic).on_complete = function()
       fighter.sprite_id = 0
       fanim=false
-      enemy.x = oepx
+      enemy.x = enemy_data.base_x
       enemy.sprite_id=4
-      edef-=1
+      enemy_data.dazzle(inventory.hearts_count)
      end
     end
    end
@@ -818,11 +831,27 @@ function make_fight(inv)
   color(14)
   print "screw this!"
   fighter.sprite_id = 2
-  tweens.make(fighter,'x',-16,20,tweens.easings.quadratic).on_complete = function()
-    exit_battle()
-  end
-  tweens.make(fighter,'scale',1,20,tweens.easings.quadratic)
   fanim = function()
+  end
+  if enemy_data.withdraw().success then
+   enemy.flip = true
+   tweens.make(fighter,'x',-16,20,tweens.easings.quadratic).on_complete = function()
+    exit_battle()
+   end
+   tweens.make(fighter,'scale',1,20,tweens.easings.quadratic)
+  else
+   fighter.x-=4
+   local tw_in = tweens.make(enemy,'x',fighter.x+30,10,tweens.easings.cubic)
+   tw_in.ease_in_and_out = true
+   tw_in.on_complete = function()
+    local tw_out = tweens.make(enemy,'x',enemy_data.base_x,20,tweens.easings.quadratic)
+    tw_out.ease_in_and_out = true
+    tw_out.on_complete = function()
+     fighter.x = ofpx
+     fighter.sprite_id = 0
+     fanim=false
+    end
+   end
   end
  end
 
@@ -835,6 +864,8 @@ function make_fight(inv)
    fanim()
    return true
   end
+
+  text_needs_clearing = true
 
   if btn(0) and not btn(1) and not btn(2) then
    frun()
@@ -871,6 +902,10 @@ function make_fight(inv)
    print("advance")
 
    reset_combat_cursor()
+  elseif text_needs_clearing then
+   cls()
+   reset_combat_cursor()
+   text_needs_clearing = false
   end
  end
 
@@ -880,7 +915,8 @@ function make_fight(inv)
     kissx=enemy.x-6+rnd()*10
     kissy=enemy.y-14+rnd()*10
    end
-   inv.remap_kiss()
+
+   inventory.remap_kiss()
    spr(kiss,kissx,kissy)
    pal()
   else
@@ -889,16 +925,36 @@ function make_fight(inv)
   end
  end
 
+ local function draw_stat(percentage, left_x, top_y, color)
+  local bar_width
+  if percentage > 1 then
+   bar_width = 20
+  elseif percentage < 0 then
+   bar_width = 0
+  else
+   bar_width = flr(20*percentage)
+  end
+  rectfill(left_x,top_y,left_x+21,top_y+2,5)
+  if bar_width > 0 then
+   rectfill(left_x+21-bar_width,top_y+1,left_x+20,top_y+1,color)
+  end
+  if bar_width < 20 then
+   rectfill(left_x+1,top_y+1,left_x+20-bar_width,top_y+1,0)
+  end
+ end
+
+ local function draw_enemy_stats()
+  draw_stat(enemy_data.trust,105,58,8)
+  draw_stat(enemy_data.humility,105,62,9)
+  draw_stat(enemy_data.intrigue,105,66,10)
+ end
+
  local function draw_fight()
   if obj.active then
-   if first_draw then
-    first_draw=false
-    cls()
-    reset_combat_cursor()
-   end
-   --clear above text
+    --clear above text
    rectfill(0,0,127,69,0)
    draw_fui()
+   draw_enemy_stats()
    sprites.draw()
    draw_kiss()
    return true
@@ -912,17 +968,13 @@ function make_fight(inv)
   update = update_fight,
   draw = draw_fight,
   start = function()
-   first_draw=true
-
-   oepx=96
-   ehp=10
-   edef=1
-   espr=4
+   text_needs_clearing=true
 
    ofpx=26
    ofpy=26
-   fspr=0
-   fflp=false
+
+   enemy_data = make_enemy(fighter,{x=128,y=ofpy,z=50,hide=true})
+   enemy = enemy_data.sprite
 
    obj.active = true
    fintro()
@@ -930,6 +982,131 @@ function make_fight(inv)
   active = false
  }
 
+ return obj
+end
+-- end ext
+
+-- start ext enemy.p8
+make_enemy = function(player,attributes)
+ local sprite = sprites.make(4,attributes)
+ sprite.centered = true
+ local player_def = inventory.equipped_items[1]-1
+ local obj
+
+ local function defended_speech()
+  color(7)
+  print "cold shoulder!"
+  color(12)
+  print "i'm sorry but i..."
+  print "think you got the wrong idea"
+ end
+
+ local function attacked_speech()
+  color(12)
+  print "aint got nothin on this!"
+ end
+
+ local function intro_speech()
+  color(7)
+  print("what a beautiful baker! <3")
+ end
+
+ local function lower_stat(stat)
+  obj[stat] -= 0.1
+ end
+
+ local function raise_stat(stat)
+  obj[stat] += 0.1
+ end
+
+ local function failed_withdraw_speech()
+  color(12)
+  print("i can't let go...")
+  print("not yet")
+ end
+
+ local function withdraw_speech()
+  color(12)
+  print("i don't need you anyway")
+ end
+
+ obj =  {
+  sprite = sprite,
+  hp = 10,
+  def = 1,
+  trust = 0.5,
+  humility = 0.5,
+  intrigue = 0.5,
+  base_x = 96,
+  base_y = 26,
+  take_damage = function(damage)
+   obj.hp -= damage
+  end,
+  withdraw = function()
+   raise_stat('humility')
+   lower_stat('trust')
+   if obj.trust - obj.humility > 0.5 then
+    raise_stat('intrigue')
+   else
+    lower_stat('intrigue')
+   end
+   if obj.intrigue + obj.humility - obj.trust < 0.5 then
+    withdraw_speech()
+    return {success=true}
+   else
+    failed_withdraw_speech()
+    return {success=false}
+   end
+  end,
+  dazzle = function(hearts_count)
+   if obj.humility < 0.4 then
+    lower_stat('intrigue')
+   elseif obj.humility > 0.6 then
+    raise_stat('intrigue')
+   end
+   if obj.trust < 0.4 then
+    lower_stat('trust')
+    lower_stat('humility')
+   elseif obj.trust > 0.6 then
+    raise_stat('trust')
+    raise_stat('humility')
+   end
+   obj.def-= hearts_count/3.999
+  end,
+  attack = function()
+   raise_stat('trust')
+   raise_stat('humility')
+   raise_stat('intrigue')
+
+   if obj.def > 0 then
+    defended_speech()
+    return {
+     success = false
+    }
+   else
+    obj.hp-=inventory.equipped_items[2]
+    return {
+     damage = inventory.equipped_items[2],
+     success = true
+    }
+   end
+  end,
+  attack_player = function()
+   if player_def > 0 then
+    return {
+     success = false
+    }
+   else
+    attacked_speech()
+    inventory.remove_heart()
+    return {
+     success = true,
+     hearts_removed = 1
+    }
+   end
+  end,
+  intro_speech = intro_speech
+ }
  return obj
 end
 -- end ext
