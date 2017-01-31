@@ -54,12 +54,20 @@ make_enemy = function(player,attributes)
   print("what a beautiful baker! <3")
  end
 
- local function lower_stat(stat)
-  obj[stat] -= 0.1
+ local function lower_stat(stat, ratio)
+  ratio=ratio or 1
+  obj[stat] -= 0.1*ratio
+  if obj[stat] <= 0 then
+   obj[stat] = 0
+  end
  end
 
- local function raise_stat(stat)
-  obj[stat] += 0.1
+ local function raise_stat(stat, ratio)
+  ratio = ratio or 1
+  obj[stat] += 0.1*ratio
+  if obj[stat] >= 1 then
+   obj[stat] = 1
+  end
  end
 
  local function failed_withdraw_speech()
@@ -94,18 +102,22 @@ make_enemy = function(player,attributes)
     lower_stat('intrigue')
    end
    if obj.intrigue + obj.humility - obj.trust < 0.5 then
-    withdraw_speech()
-    return {success=true}
+    return {
+     success=true,
+     speech=withdraw_speech
+    }
    else
-    failed_withdraw_speech()
-    return {success=false}
+    return {
+     success=false,
+     speech=failed_withdraw_speech
+    }
    end
   end,
   dazzle = function(hearts_count)
    if obj.humility < 0.4 then
     lower_stat('intrigue')
    elseif obj.humility > 0.6 then
-    raise_stat('intrigue')
+    raise_stat('intrigue',2)
    end
    if obj.trust < 0.4 then
     lower_stat('trust')
@@ -122,9 +134,9 @@ make_enemy = function(player,attributes)
    raise_stat('intrigue')
 
    if obj.def > 0 then
-    defended_speech()
     return {
-     success = false
+     success = false,
+     speech = defended_speech
     }
    else
     obj.hp-=inventory.equipped_items[2]
@@ -140,11 +152,10 @@ make_enemy = function(player,attributes)
      success = false
     }
    else
-    attacked_speech()
-    inventory.remove_heart()
     return {
      success = true,
-     hearts_removed = 1
+     hearts_removed = 1,
+     speech = attacked_speech
     }
    end
   end,

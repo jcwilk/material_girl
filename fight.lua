@@ -11,7 +11,7 @@
 -- when the fight is finished it will deactivate itself
 -- when you want a new fight, discard the old object and create a new one
 function make_fight()
- local obj, fanim, first_draw, kiss --misc fight state
+ local obj, fanim, kiss --misc fight state
  local ofpx, ofpy --player state
  local fighter, enemy --sprites
  local enemy_data
@@ -31,6 +31,10 @@ function make_fight()
    fanim=true
    return true
   end
+ end
+
+ local function clear_text()
+  text_needs_clearing = true
  end
 
  local function index_to_action(index)
@@ -57,6 +61,7 @@ function make_fight()
   tweens.make(enemy,'x',fighter.x+24,10,tweens.easings.quadratic).on_complete = function()
    enemy.sprite_id = 6
    local attack_result = enemy_data.attack_player()
+   attack_result.speech()
    if attack_result.success then
     fighter.sprite_id = 2
     fighter.x-= 2
@@ -182,6 +187,7 @@ function make_fight()
    fanim = function()
    end
    local attack_result = enemy_data.attack()
+   attack_result.speech()
    if attack_result.success then
     color(14)
     print "mwa! :*"
@@ -325,8 +331,6 @@ function make_fight()
    return true
   end
 
-  text_needs_clearing = true
-
   if btn(0) and not btn(1) and not btn(2) then
    frun()
   elseif btn(1) and not btn(0) and not btn(2) then
@@ -360,12 +364,6 @@ function make_fight()
    spr(44,67,61)
    cursor(76,63)
    print("advance")
-
-   reset_combat_cursor()
-  elseif text_needs_clearing then
-   cls()
-   reset_combat_cursor()
-   text_needs_clearing = false
   end
  end
 
@@ -411,7 +409,11 @@ function make_fight()
 
  local function draw_fight()
   if obj.active then
-    --clear above text
+   if text_needs_clearing then
+    rectfill(0,70,127,127,0)
+    reset_combat_cursor()
+    text_needs_clearing = false
+   end
    rectfill(0,0,127,69,0)
    draw_fui()
    draw_enemy_stats()
@@ -428,10 +430,10 @@ function make_fight()
   update = update_fight,
   draw = draw_fight,
   start = function()
-   text_needs_clearing=true
-
    ofpx=26
    ofpy=26
+
+   clear_text()
 
    enemy_data = make_enemy(fighter,{x=128,y=ofpy,z=50,hide=true})
    enemy = enemy_data.sprite
