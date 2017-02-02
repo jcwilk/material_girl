@@ -34,6 +34,7 @@ make_enemy = function(player,attributes)
  local sprite = sprites.make(4,attributes)
  sprite.centered = true
  local player_def = inventory.equipped_items[1]-1
+ local action_index = 1
  local obj
 
  local function defended_speech()
@@ -73,67 +74,11 @@ make_enemy = function(player,attributes)
   print("i don't need you anyway")
  end
 
- obj =  {
-  sprite = sprite,
-  hp = 10,
-  def = 1,
-  trust = 0.5,
-  humility = 0.5,
-  intrigue = 0.5,
-  base_x = 96,
-  base_y = 26,
-  take_damage = function(damage)
-   obj.hp -= damage
-  end,
-  withdraw = function()
-   raise_stat('humility')
-   lower_stat('trust')
-   if obj.trust - obj.humility > 0.5 then
-    raise_stat('intrigue')
-   else
-    lower_stat('intrigue')
-   end
-   if obj.intrigue + obj.humility - obj.trust < 0.5 then
-    withdraw_speech()
-    return {success=true}
-   else
-    failed_withdraw_speech()
-    return {success=false}
-   end
-  end,
-  dazzle = function(hearts_count)
-   if obj.humility < 0.4 then
-    lower_stat('intrigue')
-   elseif obj.humility > 0.6 then
-    raise_stat('intrigue')
-   end
-   if obj.trust < 0.4 then
-    lower_stat('trust')
-    lower_stat('humility')
-   elseif obj.trust > 0.6 then
-    raise_stat('trust')
-    raise_stat('humility')
-   end
-   obj.def-= hearts_count/3.999
-  end,
-  attack = function()
-   raise_stat('trust')
-   raise_stat('humility')
-   raise_stat('intrigue')
+ local function reset_actions()
+  obj.actions = {}
+  action_index = 1
+ end
 
-   if obj.def > 0 then
-    defended_speech()
-    return {
-     success = false
-    }
-   else
-    obj.hp-=inventory.equipped_items[2]
-    return {
-     damage = inventory.equipped_items[2],
-     success = true
-    }
-   end
-  end,
   attack_player = function()
    if player_def > 0 then
     return {
@@ -147,6 +92,127 @@ make_enemy = function(player,attributes)
      hearts_removed = 1
     }
    end
+  end
+
+ obj =  {
+  sprite = sprite,
+  hp = 10,
+  def = 1,
+  trust = 0.5,
+  humility = 0.5,
+  intrigue = 0.5,
+  base_x = 96,
+  base_y = 26,
+  actions = {},
+  advance_action = function()
+   obj.current_action = obj.actions[action_index]
+   if obj.current_action then
+    action_index+= 1
+   end
+   return obj.current_action
+  end,
+  take_damage = function(damage)
+   obj.hp -= damage
+  end,
+  withdraw = function()
+   reset_actions()
+
+   add(obj.actions,{
+    name = 'run',
+    start = function()
+     queue_text(function()
+      color(14)
+      print "screw this!"
+     end)
+    end,
+    middle = function()
+     queue_text(withdraw_speech)
+    end
+   })
+   -- raise_stat('humility')
+   -- lower_stat('trust')
+   -- if obj.trust - obj.humility > 0.5 then
+   --  raise_stat('intrigue')
+   -- else
+   --  lower_stat('intrigue')
+   -- end
+   -- if obj.intrigue + obj.humility - obj.trust < 0.5 then
+   --  withdraw_speech()
+   --  return {success=true}
+   -- else
+   --  failed_withdraw_speech()
+   --  return {success=false}
+   -- end
+  end,
+  dazzle = function(hearts_count)
+   reset_actions()
+
+   add(obj.actions,{
+    name = 'magic',
+    start = function()
+     queue_text(function()
+      color(14)
+      print("behold the power...")
+     end)
+    end,
+    middle = function()
+     if obj.humility < 0.4 then
+      lower_stat('intrigue')
+     elseif obj.humility > 0.6 then
+      raise_stat('intrigue')
+     end
+     if obj.trust < 0.4 then
+      lower_stat('trust')
+      lower_stat('humility')
+     elseif obj.trust > 0.6 then
+      raise_stat('trust')
+      raise_stat('humility')
+     end
+     obj.def-= hearts_count/3.999
+     queue_text(function()
+      color(14)
+      print("of my loveliness!")
+     end)
+    end
+   })
+  end,
+  advance = function()
+   reset_actions()
+
+   add(obj.actions,{
+    name = 'attack',
+    start = function()
+     queue_text(function()
+      color(14)
+      print "*whistles*"
+     end)
+    end,
+    middle = function()
+     queue_text(function()
+      color(14)
+      print "mwa! :*"
+     end)
+     raise_stat('trust')
+     raise_stat('humility')
+     raise_stat('intrigue')
+    end
+   })
+
+   return nil
+
+
+   -- if obj.def > 0 then
+   --  add(obj.actions,{
+   --   name = 'counterattack',
+   --   middle = defended_speech
+   --  })
+   -- else
+   --  obj.hp-=inventory.equipped_items[2]
+   --  return {
+   --   damage = inventory.equipped_items[2],
+   --   success = true
+   --  }
+   -- end
   end,
   intro_speech = intro_speech
  }

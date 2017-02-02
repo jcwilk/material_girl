@@ -33,6 +33,15 @@ function make_fight()
   end
  end
 
+ local function reset_combat_cursor()
+  cursor(1,70)
+ end
+
+ local function clear_text()
+  rectfill(0,70,127,127,0)
+  reset_combat_cursor()
+ end
+
  local function index_to_action(index)
   if index == 0 then
    return "attack"
@@ -166,10 +175,9 @@ function make_fight()
 
  local function fattack()
   -- local charging=true
-  clear_text()
-  color(14)
-  print "*whistles*"
   local pull_back
+
+  enemy_data.current_action.start()
 
   fanim = function()
     fighter.sprite_id = flr(fighter.x/6)%3
@@ -181,17 +189,12 @@ function make_fight()
   approach.on_complete = function()
    fanim = function()
    end
-   local attack_result = enemy_data.attack()
-   if attack_result.success then
-    color(14)
-    print "mwa! :*"
-    kiss=flr(rnd()*5+11)
-    enemy.x+=8
-    enemy.sprite_id=6
-   else
-    enemy.flip=true
-    enemy.x+=8
-   end
+
+   enemy_data.current_action.middle()
+   kiss=flr(rnd()*5+11)
+   enemy.x+=8
+   enemy.sprite_id=6
+
    if enemy_data.hp <= 0 then
     fwin()
    else
@@ -203,11 +206,42 @@ function make_fight()
      kiss=false
      enemy.sprite_id=4
      enemy.x=enemy_data.base_x
-     if attack_result.success then
-      fanim=false
-     else
-      fenemy_attack()
-     end
+     fanim=false
+    end
+   end
+  end
+ end
+
+ local function fattack_fail()
+  -- local charging=true
+  local pull_back
+
+  enemy_data.current_action.start()
+
+  fanim = function()
+    fighter.sprite_id = flr(fighter.x/6)%3
+  end
+
+  approach_easing = tweens.easings.merge(tweens.easings.quadratic,tweens.easings.cubic)
+  local approach = tweens.make(fighter,'x',enemy.x-16,20,approach_easing)
+  --approach.ease_in_and_out = true
+  approach.on_complete = function()
+   fanim = function()
+   end
+   enemy.flip=true
+   enemy.x+=8
+   if enemy_data.hp <= 0 then
+    fwin()
+   else
+    local recede = tweens.make(fighter,'x',ofpx,12,tweens.easings.quadratic)
+    fighter.sprite_id = 2
+    recede.ease_in_and_out=true
+    recede.on_complete = function()
+     fighter.sprite_id=0
+     kiss=false
+     enemy.sprite_id=4
+     enemy.x=enemy_data.base_x
+     fanim=false
     end
    end
   end
@@ -216,7 +250,6 @@ function make_fight()
  local function fmagic()
   local spinx = fighter.x+20
   fighter.sprite_id = 1
-  clear_text()
 
   fanim = function()
   end
@@ -228,11 +261,10 @@ function make_fight()
   end
   tweens.make(fighter,'scale',5,10)
   tweens.make(fighter,'x',ofpx+20,10).on_complete = function()
+   enemy_data.current_action.start()
    fighter.sprite_id=2
    magwait=30
    --magwaitx=fpx
-   color(14)
-   print("behold the power...")
    local counter=0
    local hearts = {}
    for i=1,inventory.hearts_count do
@@ -269,8 +301,7 @@ function make_fight()
     if magwait <= 0 then
      fighter.x = spinx
      fighter.flip=false
-     color(14)
-     print("of my loveliness!")
+     enemy_data.current_action.middle()
      fanim = function()
      end
      tweens.make(fighter,'scale',4,10)
@@ -279,7 +310,6 @@ function make_fight()
       fanim=false
       enemy.x = enemy_data.base_x
       enemy.sprite_id=4
-      enemy_data.dazzle(inventory.hearts_count)
      end
     end
    end
@@ -287,30 +317,39 @@ function make_fight()
  end
 
  local function frun()
+  enemy_data.current_action.start()
+  fighter.sprite_id = 2
+  fanim = function()
+  end
+  enemy_approach = tweens.make(enemy,'x',enemy.x-10,6,tweens.easings.quadratic)
+  enemy_approach.ease_in_and_out = true
+  enemy_approach.on_complete = function()
+   enemy_data.current_action.middle()
+   enemy.flip = true
+   tweens.make(fighter,'x',-16,20,tweens.easings.quadratic).on_complete = function()
+    exit_battle()
+   end
+   tweens.make(fighter,'scale',1,20,tweens.easings.quadratic)
+  end
+ end
+
+ local function frun_fail()
   clear_text()
   color(14)
   print "screw this!"
   fighter.sprite_id = 2
   fanim = function()
   end
-  if enemy_data.withdraw().success then
-   enemy.flip = true
-   tweens.make(fighter,'x',-16,20,tweens.easings.quadratic).on_complete = function()
-    exit_battle()
-   end
-   tweens.make(fighter,'scale',1,20,tweens.easings.quadratic)
-  else
-   fighter.x-=4
-   local tw_in = tweens.make(enemy,'x',fighter.x+30,10,tweens.easings.cubic)
-   tw_in.ease_in_and_out = true
-   tw_in.on_complete = function()
-    local tw_out = tweens.make(enemy,'x',enemy_data.base_x,20,tweens.easings.quadratic)
-    tw_out.ease_in_and_out = true
-    tw_out.on_complete = function()
-     fighter.x = ofpx
-     fighter.sprite_id = 0
-     fanim=false
-    end
+  fighter.x-=4
+  local tw_in = tweens.make(enemy,'x',fighter.x+30,10,tweens.easings.cubic)
+  tw_in.ease_in_and_out = true
+  tw_in.on_complete = function()
+   local tw_out = tweens.make(enemy,'x',enemy_data.base_x,20,tweens.easings.quadratic)
+   tw_out.ease_in_and_out = true
+   tw_out.on_complete = function()
+    fighter.x = ofpx
+    fighter.sprite_id = 0
+    fanim=false
    end
   end
  end
@@ -325,21 +364,32 @@ function make_fight()
    return true
   end
 
-  text_needs_clearing = true
+  local next_action = enemy_data.advance_action()
+
+  if next_action then
+   if next_action.name == 'run' then
+    frun()
+   elseif next_action.name == 'attack' then
+    fattack()
+   elseif next_action.name == 'magic' then
+    fmagic()
+   end
+
+   return true
+  end
 
   if btn(0) and not btn(1) and not btn(2) then
-   frun()
+   queue_text(clear_text)
+   enemy_data.withdraw()
   elseif btn(1) and not btn(0) and not btn(2) then
-   fattack()
+   queue_text(clear_text)
+   enemy_data.advance()
   elseif btn(2) and not btn(0) and not btn(1) then
-   fmagic()
+   queue_text(clear_text)
+   enemy_data.dazzle(inventory.hearts_count)
   end
 
   return true
- end
-
- local function reset_combat_cursor()
-  cursor(1,70)
  end
 
  -----------------------
@@ -362,11 +412,8 @@ function make_fight()
    print("advance")
 
    reset_combat_cursor()
-  elseif text_needs_clearing then
-   cls()
-   reset_combat_cursor()
-   text_needs_clearing = false
   end
+  draw_text()
  end
 
  function draw_kiss()
@@ -428,7 +475,7 @@ function make_fight()
   update = update_fight,
   draw = draw_fight,
   start = function()
-   text_needs_clearing=true
+   queue_text(cls)
 
    ofpx=26
    ofpy=26
