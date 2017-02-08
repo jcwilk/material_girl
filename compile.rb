@@ -7,6 +7,7 @@ require 'pry'
 def extract_from_file(filename)
   reading = false
   lines = []
+  indentation = nil
   File.readlines(filename).each do |line|
     if !reading
       if line =~ /-- ?START LIB/i
@@ -15,6 +16,12 @@ def extract_from_file(filename)
       next
     end
     return lines if line =~ /^-- ?END LIB/i
+    if !indentation && line =~ /^([ ]+)[^ ]/
+      indentation = $1.size
+    end
+    if indentation
+      line = line.gsub(/^[ ]+/) {|s| ' '*(s.size/indentation) }
+    end
     lines << line
   end
   lines

@@ -354,6 +354,26 @@ function make_fight()
   end
  end
 
+ local function detect_keys()
+  if btn(0) and not btn(1) and not btn(2) then
+   queue_text(clear_text)
+   enemy_data.withdraw()
+   return true
+  end
+  if btn(1) and not btn(0) and not btn(2) then
+   queue_text(clear_text)
+   enemy_data.advance()
+   return true
+  end
+  if btn(2) and not btn(0) and not btn(1) then
+   queue_text(clear_text)
+   enemy_data.dazzle(inventory.hearts_count)
+   return true
+  end
+
+  return false
+ end
+
  local function update_fight()
   if not obj.active then
    return false
@@ -366,27 +386,14 @@ function make_fight()
 
   local next_action = enemy_data.advance_action()
 
-  if next_action then
-   if next_action.name == 'run' then
+  if next_action or detect_keys() then
+   if enemy_data.current_action.name == 'run' then
     frun()
-   elseif next_action.name == 'attack' then
+   elseif enemy_data.current_action.name == 'attack' then
     fattack()
-   elseif next_action.name == 'magic' then
+   elseif enemy_data.current_action.name == 'magic' then
     fmagic()
    end
-
-   return true
-  end
-
-  if btn(0) and not btn(1) and not btn(2) then
-   queue_text(clear_text)
-   enemy_data.withdraw()
-  elseif btn(1) and not btn(0) and not btn(2) then
-   queue_text(clear_text)
-   enemy_data.advance()
-  elseif btn(2) and not btn(0) and not btn(1) then
-   queue_text(clear_text)
-   enemy_data.dazzle(inventory.hearts_count)
   end
 
   return true

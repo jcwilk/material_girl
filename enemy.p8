@@ -31,192 +31,199 @@ __lua__
  -- end
 -- start lib
 make_enemy = function(player,attributes)
- local sprite = sprites.make(4,attributes)
- sprite.centered = true
- local player_def = inventory.equipped_items[1]-1
- local action_index = 1
- local obj
+  local sprite = sprites.make(4,attributes)
+  sprite.centered = true
+  local player_def = inventory.equipped_items[1]-1
+  local action_index = 1
+  local obj
+  local enemy_actions = 0
 
- local function defended_speech()
-  color(7)
-  print "cold shoulder!"
-  color(12)
-  print "i'm sorry but i..."
-  print "think you got the wrong idea"
- end
-
- local function attacked_speech()
-  color(12)
-  print "aint got nothin on this!"
- end
-
- local function intro_speech()
-  color(7)
-  print("what a beautiful baker! <3")
- end
-
- local function lower_stat(stat)
-  obj[stat] -= 0.1
- end
-
- local function raise_stat(stat)
-  obj[stat] += 0.1
- end
-
- local function failed_withdraw_speech()
-  color(12)
-  print("i can't let go...")
-  print("not yet")
- end
-
- local function withdraw_speech()
-  color(12)
-  print("i don't need you anyway")
- end
-
- local function reset_actions()
-  obj.actions = {}
-  action_index = 1
- end
-
-  attack_player = function()
-   if player_def > 0 then
-    return {
-     success = false
-    }
-   else
-    attacked_speech()
-    inventory.remove_heart()
-    return {
-     success = true,
-     hearts_removed = 1
-    }
-   end
+  local function defended_speech()
+    color(7)
+    print "cold shoulder!"
+    color(12)
+    print "i'm sorry but i..."
+    print "think you got the wrong idea"
   end
 
- obj =  {
-  sprite = sprite,
-  hp = 10,
-  def = 1,
-  trust = 0.5,
-  humility = 0.5,
-  intrigue = 0.5,
-  base_x = 96,
-  base_y = 26,
-  actions = {},
-  advance_action = function()
-   obj.current_action = obj.actions[action_index]
-   if obj.current_action then
-    action_index+= 1
-   end
-   return obj.current_action
-  end,
-  take_damage = function(damage)
-   obj.hp -= damage
-  end,
-  withdraw = function()
-   reset_actions()
+  local function attacked_speech()
+    color(12)
+    print "aint got nothin on this!"
+  end
 
-   add(obj.actions,{
-    name = 'run',
-    start = function()
-     queue_text(function()
-      color(14)
-      print "screw this!"
-     end)
-    end,
-    middle = function()
-     queue_text(withdraw_speech)
+  local function intro_speech()
+    color(7)
+    print("what a beautiful baker! <3")
+  end
+
+  local function lower_stat(stat)
+    obj[stat] -= 0.1
+  end
+
+  local function raise_stat(stat)
+    obj[stat] += 0.1
+  end
+
+  local function failed_withdraw_speech()
+    color(12)
+    print("i can't let go...")
+    print("not yet")
+  end
+
+  local function withdraw_speech()
+    color(12)
+    print("i don't need you anyway")
+  end
+
+  local function reset_actions()
+    enemy_actions = 1
+  end
+
+  attack_player = function()
+    if player_def > 0 then
+      return {
+      success = false
+    }
+    else
+      attacked_speech()
+      inventory.remove_heart()
+      return {
+      success = true,
+      hearts_removed = 1
+    }
     end
-   })
-   -- raise_stat('humility')
-   -- lower_stat('trust')
-   -- if obj.trust - obj.humility > 0.5 then
-   --  raise_stat('intrigue')
-   -- else
-   --  lower_stat('intrigue')
-   -- end
-   -- if obj.intrigue + obj.humility - obj.trust < 0.5 then
-   --  withdraw_speech()
-   --  return {success=true}
-   -- else
-   --  failed_withdraw_speech()
-   --  return {success=false}
-   -- end
-  end,
-  dazzle = function(hearts_count)
-   reset_actions()
+  end
 
-   add(obj.actions,{
-    name = 'magic',
-    start = function()
-     queue_text(function()
-      color(14)
-      print("behold the power...")
-     end)
+  obj =  {
+    sprite = sprite,
+    hp = 10,
+    def = 1,
+    trust = 0.5,
+    humility = 0.5,
+    intrigue = 0.5,
+    base_x = 96,
+    base_y = 26,
+    advance_action = function()
+      if enemy_actions > 0 then
+        -- do stuff
+        enemy_actions-= 1
+        return true
+      else
+        obj.current_action = nil
+        return nil
+      end
+      -- obj.current_action = obj.actions[action_index]
+      -- if obj.current_action then
+      --   action_index+= 1
+      -- end
+      -- return obj.current_action
     end,
-    middle = function()
-     if obj.humility < 0.4 then
-      lower_stat('intrigue')
-     elseif obj.humility > 0.6 then
-      raise_stat('intrigue')
-     end
-     if obj.trust < 0.4 then
-      lower_stat('trust')
-      lower_stat('humility')
-     elseif obj.trust > 0.6 then
-      raise_stat('trust')
-      raise_stat('humility')
-     end
-     obj.def-= hearts_count/3.999
-     queue_text(function()
-      color(14)
-      print("of my loveliness!")
-     end)
-    end
-   })
-  end,
-  advance = function()
-   reset_actions()
-
-   add(obj.actions,{
-    name = 'attack',
-    start = function()
-     queue_text(function()
-      color(14)
-      print "*whistles*"
-     end)
+    take_damage = function(damage)
+      obj.hp -= damage
     end,
-    middle = function()
-     queue_text(function()
-      color(14)
-      print "mwa! :*"
-     end)
-     raise_stat('trust')
-     raise_stat('humility')
-     raise_stat('intrigue')
-    end
-   })
+    withdraw = function()
+      reset_actions()
 
-   return nil
+      obj.current_action = {
+        name = 'run',
+        start = function()
+        queue_text(function()
+          color(14)
+          print "screw this!"
+          end)
+        end,
+        middle = function()
+        queue_text(withdraw_speech)
+      end
+      }
+      -- raise_stat('humility')
+      -- lower_stat('trust')
+      -- if obj.trust - obj.humility > 0.5 then
+      --  raise_stat('intrigue')
+      -- else
+      --  lower_stat('intrigue')
+      -- end
+      -- if obj.intrigue + obj.humility - obj.trust < 0.5 then
+      --  withdraw_speech()
+      --  return {success=true}
+      -- else
+      --  failed_withdraw_speech()
+      --  return {success=false}
+      -- end
+    end,
+    dazzle = function(hearts_count)
+      reset_actions()
+
+      obj.current_action = {
+        name = 'magic',
+        start = function()
+          queue_text(function()
+            color(14)
+            print("behold the power...")
+          end)
+        end,
+        middle = function()
+          if obj.humility < 0.4 then
+            lower_stat('intrigue')
+          elseif obj.humility > 0.6 then
+            raise_stat('intrigue')
+          end
+          if obj.trust < 0.4 then
+            lower_stat('trust')
+            lower_stat('humility')
+          elseif obj.trust > 0.6 then
+            raise_stat('trust')
+            raise_stat('humility')
+          end
+          obj.def-= hearts_count/3.999
+          queue_text(function()
+            color(14)
+            print("of my loveliness!")
+          end)
+        end
+      }
+    end,
+    advance = function()
+      reset_actions()
+
+      obj.current_action = {
+        name = 'attack',
+        start = function()
+        queue_text(function()
+          color(14)
+          print "*whistles*"
+          end)
+        end,
+        middle = function()
+          queue_text(function()
+            color(14)
+            print "mwa! :*"
+          end)
+          raise_stat('trust')
+          raise_stat('humility')
+          raise_stat('intrigue')
+        end
+      }
+
+      return nil
 
 
-   -- if obj.def > 0 then
-   --  add(obj.actions,{
-   --   name = 'counterattack',
-   --   middle = defended_speech
-   --  })
-   -- else
-   --  obj.hp-=inventory.equipped_items[2]
-   --  return {
-   --   damage = inventory.equipped_items[2],
-   --   success = true
-   --  }
-   -- end
-  end,
-  intro_speech = intro_speech
- }
- return obj
+      -- if obj.def > 0 then
+      --  add(obj.actions,{
+      --   name = 'counterattack',
+      --   middle = defended_speech
+      --  })
+      -- else
+      --  obj.hp-=inventory.equipped_items[2]
+      --  return {
+      --   damage = inventory.equipped_items[2],
+      --   success = true
+      --  }
+      -- end
+    end,
+    intro_speech = intro_speech
+  }
+  return obj
 end
 -- end lib
 __gfx__

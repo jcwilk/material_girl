@@ -894,6 +894,26 @@ function make_fight()
   end
  end
 
+ local function detect_keys()
+  if btn(0) and not btn(1) and not btn(2) then
+   queue_text(clear_text)
+   enemy_data.withdraw()
+   return true
+  end
+  if btn(1) and not btn(0) and not btn(2) then
+   queue_text(clear_text)
+   enemy_data.advance()
+   return true
+  end
+  if btn(2) and not btn(0) and not btn(1) then
+   queue_text(clear_text)
+   enemy_data.dazzle(inventory.hearts_count)
+   return true
+  end
+
+  return false
+ end
+
  local function update_fight()
   if not obj.active then
    return false
@@ -906,27 +926,14 @@ function make_fight()
 
   local next_action = enemy_data.advance_action()
 
-  if next_action then
-   if next_action.name == 'run' then
+  if next_action or detect_keys() then
+   if enemy_data.current_action.name == 'run' then
     frun()
-   elseif next_action.name == 'attack' then
+   elseif enemy_data.current_action.name == 'attack' then
     fattack()
-   elseif next_action.name == 'magic' then
+   elseif enemy_data.current_action.name == 'magic' then
     fmagic()
    end
-
-   return true
-  end
-
-  if btn(0) and not btn(1) and not btn(2) then
-   queue_text(clear_text)
-   enemy_data.withdraw()
-  elseif btn(1) and not btn(0) and not btn(2) then
-   queue_text(clear_text)
-   enemy_data.advance()
-  elseif btn(2) and not btn(0) and not btn(1) then
-   queue_text(clear_text)
-   enemy_data.dazzle(inventory.hearts_count)
   end
 
   return true
@@ -1040,6 +1047,7 @@ make_enemy = function(player,attributes)
  local player_def = inventory.equipped_items[1]-1
  local action_index = 1
  local obj
+ local enemy_actions = 0
 
  local function defended_speech()
   color(7)
@@ -1079,24 +1087,23 @@ make_enemy = function(player,attributes)
  end
 
  local function reset_actions()
-  obj.actions = {}
-  action_index = 1
+  enemy_actions = 1
  end
 
-  attack_player = function()
-   if player_def > 0 then
-    return {
-     success = false
-    }
-   else
-    attacked_speech()
-    inventory.remove_heart()
-    return {
-     success = true,
-     hearts_removed = 1
-    }
-   end
+ attack_player = function()
+  if player_def > 0 then
+   return {
+   success = false
+  }
+  else
+   attacked_speech()
+   inventory.remove_heart()
+   return {
+   success = true,
+   hearts_removed = 1
+  }
   end
+ end
 
  obj =  {
   sprite = sprite,
@@ -1107,13 +1114,20 @@ make_enemy = function(player,attributes)
   intrigue = 0.5,
   base_x = 96,
   base_y = 26,
-  actions = {},
   advance_action = function()
-   obj.current_action = obj.actions[action_index]
-   if obj.current_action then
-    action_index+= 1
+   if enemy_actions > 0 then
+    -- do stuff
+    enemy_actions-= 1
+    return true
+   else
+    obj.current_action = nil
+    return nil
    end
-   return obj.current_action
+   -- obj.current_action = obj.actions[action_index]
+   -- if obj.current_action then
+   --   action_index+= 1
+   -- end
+   -- return obj.current_action
   end,
   take_damage = function(damage)
    obj.hp -= damage
@@ -1121,18 +1135,18 @@ make_enemy = function(player,attributes)
   withdraw = function()
    reset_actions()
 
-   add(obj.actions,{
+   obj.current_action = {
     name = 'run',
     start = function()
-     queue_text(function()
-      color(14)
-      print "screw this!"
+    queue_text(function()
+     color(14)
+     print "screw this!"
      end)
     end,
     middle = function()
-     queue_text(withdraw_speech)
-    end
-   })
+    queue_text(withdraw_speech)
+   end
+   }
    -- raise_stat('humility')
    -- lower_stat('trust')
    -- if obj.trust - obj.humility > 0.5 then
@@ -1151,7 +1165,7 @@ make_enemy = function(player,attributes)
   dazzle = function(hearts_count)
    reset_actions()
 
-   add(obj.actions,{
+   obj.current_action = {
     name = 'magic',
     start = function()
      queue_text(function()
@@ -1178,17 +1192,17 @@ make_enemy = function(player,attributes)
       print("of my loveliness!")
      end)
     end
-   })
+   }
   end,
   advance = function()
    reset_actions()
 
-   add(obj.actions,{
+   obj.current_action = {
     name = 'attack',
     start = function()
-     queue_text(function()
-      color(14)
-      print "*whistles*"
+    queue_text(function()
+     color(14)
+     print "*whistles*"
      end)
     end,
     middle = function()
@@ -1200,7 +1214,7 @@ make_enemy = function(player,attributes)
      raise_stat('humility')
      raise_stat('intrigue')
     end
-   })
+   }
 
    return nil
 
