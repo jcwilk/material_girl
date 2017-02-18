@@ -36,7 +36,7 @@ make_enemy = function(player,attributes)
   local player_def = inventory.equipped_items[1]-1
   local action_index = 1
   local obj
-  local enemy_actions = 0
+  local deferred_action = nil
 
   local function defended_speech()
     color(7)
@@ -76,22 +76,62 @@ make_enemy = function(player,attributes)
   end
 
   local function reset_actions()
-    enemy_actions = 1
+    deferred_action = nil
   end
 
-  attack_player = function()
-    if player_def > 0 then
-      return {
-      success = false
+  local function lose()
+    obj.current_action = {
+      name = 'lose',
+      start = function()
+        queue_text(function()
+          color(14)
+          print "i guess this is the end..."
+        end)
+      end,
+      middle = function()
+        queue_text(function()
+          color(14)
+          print "left forever to wonder"
+          print "where things went wrong"
+          color(8)
+          print "game over"
+          print "ctrl+r to retry"
+        end)
+      end
     }
-    else
-      attacked_speech()
-      inventory.remove_heart()
-      return {
-      success = true,
-      hearts_removed = 1
+  end
+
+  local function win()
+    obj.current_action = {
+      name = 'win',
+      start = function()
+      end,
+      middle = function()
+      end
     }
-    end
+  end
+
+  local function counterattack()
+    obj.current_action = {
+      name = 'counterattack',
+      start = function()
+        queue_text(attacked_speech)
+      end,
+      middle = function()
+        queue_text(function()
+          color(14)
+          print "so hurtful.."
+        end)
+        lower_stat('trust')
+        lower_stat('humility')
+        lower_stat('intrigue')
+        inventory.remove_heart()
+        if inventory.hearts_count <= 0 then
+          obj.current_action.lose = true
+          deferred_action = lose
+        end
+      end
+    }
   end
 
   obj =  {
@@ -104,9 +144,11 @@ make_enemy = function(player,attributes)
     base_x = 96,
     base_y = 26,
     advance_action = function()
-      if enemy_actions > 0 then
-        -- do stuff
-        enemy_actions-= 1
+      local todo
+      if deferred_action then
+        todo = deferred_action
+        deferred_action = nil
+        todo()
         return true
       else
         obj.current_action = nil
@@ -186,40 +228,49 @@ make_enemy = function(player,attributes)
     advance = function()
       reset_actions()
 
-      obj.current_action = {
-        name = 'attack',
-        start = function()
-        queue_text(function()
-          color(14)
-          print "*whistles*"
-          end)
-        end,
-        middle = function()
-          queue_text(function()
-            color(14)
-            print "mwa! :*"
-          end)
-          raise_stat('trust')
-          raise_stat('humility')
-          raise_stat('intrigue')
-        end
-      }
+      if obj.def <= 0 then
+        obj.current_action = {
+          name = 'attack',
+          start = function()
+            queue_text(function()
+              color(14)
+              print "*whistles*"
+            end)
+          end,
+          middle = function()
+            queue_text(function()
+              color(14)
+              print "mwa! :*"
+            end)
+            raise_stat('trust')
+            raise_stat('humility')
+            raise_stat('intrigue')
+            obj.hp-=inventory.equipped_items[2]
+            if obj.hp <= 0 then
+              obj.current_action.win = true
+              deferred_action = win
+            end
+          end
+        }
 
-      return nil
-
-
-      -- if obj.def > 0 then
-      --  add(obj.actions,{
-      --   name = 'counterattack',
-      --   middle = defended_speech
-      --  })
-      -- else
-      --  obj.hp-=inventory.equipped_items[2]
-      --  return {
-      --   damage = inventory.equipped_items[2],
-      --   success = true
-      --  }
-      -- end
+      else
+        obj.current_action = {
+          name = 'attack_fail',
+          start = function()
+            queue_text(function()
+              color(14)
+              print "*whistle*"
+            end)
+          end,
+          middle = function()
+            queue_text(function()
+              color(12)
+              print "not so fast..."
+            end)
+          end
+        }
+        deferred_action = counterattack
+      end
     end,
     intro_speech = intro_speech
   }

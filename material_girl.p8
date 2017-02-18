@@ -292,6 +292,11 @@ function make_inventory()
   tweens.make(heart,'scale',3,10).on_complete = heart.kill
  end
 
+ -- obj.destroy_hearts = function()
+ --  for _,h in pairs(owned_hearts) do
+ --   tweens.make(h,'y',4)
+ -- end
+
  for i=0,2,1 do
   obj.add_heart()
  end
@@ -600,30 +605,47 @@ function make_fight()
  end
 
  local function fenemy_attack()
+  enemy_data.current_action.start()
   enemy.flip=false
   enemy.sprite_id=5
 
+  fanim = function()
+  end
+
   tweens.make(enemy,'x',fighter.x+24,10,tweens.easings.quadratic).on_complete = function()
    enemy.sprite_id = 6
-   local attack_result = enemy_data.attack_player()
-   if attack_result.success then
-    fighter.sprite_id = 2
-    fighter.x-= 2
+   --local attack_result = enemy_data.attack_player()
+   if true then --attack_result.success then
+    enemy_data.current_action.middle()
 
-    local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,tweens.easings.quadratic)
-    rising.ease_out = true
-     rising.on_complete = function()
-     tweens.make(enemy,'y',enemy_data.base_y,7,tweens.easings.quadratic)
-    end
-    local pull_back = tweens.make(enemy,'x',enemy_data.base_x,14,tweens.easings.quadratic)
-    pull_back.ease_out=true
-    pull_back.on_complete = function()
+    if enemy_data.current_action.lose then
      enemy.sprite_id = 4
-     fanim = false
-     fighter.sprite_id = 0
-     fighter.x=ofpx
-     color(14)
-     print "how hurtful..."
+     fighter.sprite_id = 2
+     local falling = tweens.make(fighter,'x',fighter.x-8,40,tweens.easings.quadratic)
+     falling.ease_out = true
+     falling.on_complete = function()
+      fanim = false
+     end
+    else
+     fighter.sprite_id = 2
+     local recoil = tweens.make(fighter,'x',fighter.x-4,6,tweens.easings.quadratic)
+     recoil.ease_out = true
+     recoil.on_complete = function()
+      fighter.sprite_id = 0
+      tweens.make(fighter,'x',ofpx,4,tweens.easings.quadratic)
+     end
+
+     local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,tweens.easings.quadratic)
+     rising.ease_out = true
+     rising.on_complete = function()
+      tweens.make(enemy,'y',enemy_data.base_y,7,tweens.easings.quadratic)
+     end
+     local pull_back = tweens.make(enemy,'x',enemy_data.base_x,14,tweens.easings.quadratic)
+     pull_back.ease_out=true
+     pull_back.on_complete = function()
+      enemy.sprite_id = 4
+      fanim = false
+     end
     end
    else
     color(14)
@@ -670,8 +692,31 @@ function make_fight()
   end
  end
 
+ local function flose()
+  fanim = function()
+  end
+
+  fighter.sprite_id = 48
+
+  enemy_data.current_action.start()
+  enemy.flip = true
+  tweens.make(enemy,'x',128+16,30,tweens.easings.cubic).on_complete = function()
+    enemy_data.current_action.middle()
+    fighter.before_draw = function()
+      pal(7,14)
+      pal(11,14)
+      pal(10,14)
+      pal(4,14)
+      pal(12,14)
+      pal(15,2)
+      pal(14,2)
+      pal(3,2)
+      pal(8,2)
+    end
+  end
+ end
+
  local function fwin()
-  print "noooo"
   local winwait=60
   local win_heart = sprites.make(10,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
   local tweening = false
@@ -705,7 +750,6 @@ function make_fight()
     inventory.add_heart()
     win_heart.kill()
     fighter.sprite_id = 2
-    color(7)
     local jump = tweens.make(fighter,'y',fighter.y-5,14,tweens.easings.cubic)
     jump.ease_out = true
     jump.on_complete = exit_battle
@@ -714,9 +758,6 @@ function make_fight()
  end
 
  local function fattack()
-  -- local charging=true
-  local pull_back
-
   enemy_data.current_action.start()
 
   fanim = function()
@@ -735,8 +776,8 @@ function make_fight()
    enemy.x+=8
    enemy.sprite_id=6
 
-   if enemy_data.hp <= 0 then
-    fwin()
+   if enemy_data.current_action.win then
+    fanim = false
    else
     local recede = tweens.make(fighter,'x',ofpx,12,tweens.easings.quadratic)
     fighter.sprite_id = 2
@@ -753,9 +794,6 @@ function make_fight()
  end
 
  local function fattack_fail()
-  -- local charging=true
-  local pull_back
-
   enemy_data.current_action.start()
 
   fanim = function()
@@ -766,6 +804,8 @@ function make_fight()
   local approach = tweens.make(fighter,'x',enemy.x-16,20,approach_easing)
   --approach.ease_in_and_out = true
   approach.on_complete = function()
+   enemy_data.current_action.middle()
+
    fanim = function()
    end
    enemy.flip=true
@@ -933,6 +973,14 @@ function make_fight()
     fattack()
    elseif enemy_data.current_action.name == 'magic' then
     fmagic()
+   elseif enemy_data.current_action.name == 'attack_fail' then
+    fattack_fail()
+   elseif enemy_data.current_action.name == 'counterattack' then
+    fenemy_attack()
+   elseif enemy_data.current_action.name == 'lose' then
+    flose()
+   elseif enemy_data.current_action.name == 'win' then
+    fwin()
    end
   end
 
@@ -1047,7 +1095,7 @@ make_enemy = function(player,attributes)
  local player_def = inventory.equipped_items[1]-1
  local action_index = 1
  local obj
- local enemy_actions = 0
+ local deferred_action = nil
 
  local function defended_speech()
   color(7)
@@ -1087,22 +1135,62 @@ make_enemy = function(player,attributes)
  end
 
  local function reset_actions()
-  enemy_actions = 1
+  deferred_action = nil
  end
 
- attack_player = function()
-  if player_def > 0 then
-   return {
-   success = false
+ local function lose()
+  obj.current_action = {
+   name = 'lose',
+   start = function()
+    queue_text(function()
+     color(14)
+     print "i guess this is the end..."
+    end)
+   end,
+   middle = function()
+    queue_text(function()
+     color(14)
+     print "left forever to wonder"
+     print "where things went wrong"
+     color(8)
+     print "game over"
+     print "ctrl+r to retry"
+    end)
+   end
   }
-  else
-   attacked_speech()
-   inventory.remove_heart()
-   return {
-   success = true,
-   hearts_removed = 1
+ end
+
+ local function win()
+  obj.current_action = {
+   name = 'win',
+   start = function()
+   end,
+   middle = function()
+   end
   }
-  end
+ end
+
+ local function counterattack()
+  obj.current_action = {
+   name = 'counterattack',
+   start = function()
+    queue_text(attacked_speech)
+   end,
+   middle = function()
+    queue_text(function()
+     color(14)
+     print "so hurtful.."
+    end)
+    lower_stat('trust')
+    lower_stat('humility')
+    lower_stat('intrigue')
+    inventory.remove_heart()
+    if inventory.hearts_count <= 0 then
+     obj.current_action.lose = true
+     deferred_action = lose
+    end
+   end
+  }
  end
 
  obj =  {
@@ -1115,9 +1203,11 @@ make_enemy = function(player,attributes)
   base_x = 96,
   base_y = 26,
   advance_action = function()
-   if enemy_actions > 0 then
-    -- do stuff
-    enemy_actions-= 1
+   local todo
+   if deferred_action then
+    todo = deferred_action
+    deferred_action = nil
+    todo()
     return true
    else
     obj.current_action = nil
@@ -1197,40 +1287,49 @@ make_enemy = function(player,attributes)
   advance = function()
    reset_actions()
 
-   obj.current_action = {
-    name = 'attack',
-    start = function()
-    queue_text(function()
-     color(14)
-     print "*whistles*"
-     end)
-    end,
-    middle = function()
-     queue_text(function()
-      color(14)
-      print "mwa! :*"
-     end)
-     raise_stat('trust')
-     raise_stat('humility')
-     raise_stat('intrigue')
-    end
-   }
+   if obj.def <= 0 then
+    obj.current_action = {
+     name = 'attack',
+     start = function()
+      queue_text(function()
+       color(14)
+       print "*whistles*"
+      end)
+     end,
+     middle = function()
+      queue_text(function()
+       color(14)
+       print "mwa! :*"
+      end)
+      raise_stat('trust')
+      raise_stat('humility')
+      raise_stat('intrigue')
+      obj.hp-=inventory.equipped_items[2]
+      if obj.hp <= 0 then
+       obj.current_action.win = true
+       deferred_action = win
+      end
+     end
+    }
 
-   return nil
-
-
-   -- if obj.def > 0 then
-   --  add(obj.actions,{
-   --   name = 'counterattack',
-   --   middle = defended_speech
-   --  })
-   -- else
-   --  obj.hp-=inventory.equipped_items[2]
-   --  return {
-   --   damage = inventory.equipped_items[2],
-   --   success = true
-   --  }
-   -- end
+   else
+    obj.current_action = {
+     name = 'attack_fail',
+     start = function()
+      queue_text(function()
+       color(14)
+       print "*whistle*"
+      end)
+     end,
+     middle = function()
+      queue_text(function()
+       color(12)
+       print "not so fast..."
+      end)
+     end
+    }
+    deferred_action = counterattack
+   end
   end,
   intro_speech = intro_speech
  }
@@ -1447,10 +1546,10 @@ d33453545355453d34453d3565656565f440f440f64440049a8888092e9999a21aaccaa13bbbbbb3
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+40000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0fb0f0ae000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00bbbfca000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4f3b38fa000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

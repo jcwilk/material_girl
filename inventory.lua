@@ -37,6 +37,11 @@ function make_inventory()
   tweens.make(heart,'scale',3,10).on_complete = heart.kill
  end
 
+ -- obj.destroy_hearts = function()
+ --  for _,h in pairs(owned_hearts) do
+ --   tweens.make(h,'y',4)
+ -- end
+
  for i=0,2,1 do
   obj.add_heart()
  end

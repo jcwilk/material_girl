@@ -60,30 +60,47 @@ function make_fight()
  end
 
  local function fenemy_attack()
+  enemy_data.current_action.start()
   enemy.flip=false
   enemy.sprite_id=5
 
+  fanim = function()
+  end
+
   tweens.make(enemy,'x',fighter.x+24,10,tweens.easings.quadratic).on_complete = function()
    enemy.sprite_id = 6
-   local attack_result = enemy_data.attack_player()
-   if attack_result.success then
-    fighter.sprite_id = 2
-    fighter.x-= 2
+   --local attack_result = enemy_data.attack_player()
+   if true then --attack_result.success then
+    enemy_data.current_action.middle()
 
-    local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,tweens.easings.quadratic)
-    rising.ease_out = true
-     rising.on_complete = function()
-     tweens.make(enemy,'y',enemy_data.base_y,7,tweens.easings.quadratic)
-    end
-    local pull_back = tweens.make(enemy,'x',enemy_data.base_x,14,tweens.easings.quadratic)
-    pull_back.ease_out=true
-    pull_back.on_complete = function()
+    if enemy_data.current_action.lose then
      enemy.sprite_id = 4
-     fanim = false
-     fighter.sprite_id = 0
-     fighter.x=ofpx
-     color(14)
-     print "how hurtful..."
+     fighter.sprite_id = 2
+     local falling = tweens.make(fighter,'x',fighter.x-8,40,tweens.easings.quadratic)
+     falling.ease_out = true
+     falling.on_complete = function()
+      fanim = false
+     end
+    else
+     fighter.sprite_id = 2
+     local recoil = tweens.make(fighter,'x',fighter.x-4,6,tweens.easings.quadratic)
+     recoil.ease_out = true
+     recoil.on_complete = function()
+      fighter.sprite_id = 0
+      tweens.make(fighter,'x',ofpx,4,tweens.easings.quadratic)
+     end
+
+     local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,tweens.easings.quadratic)
+     rising.ease_out = true
+     rising.on_complete = function()
+      tweens.make(enemy,'y',enemy_data.base_y,7,tweens.easings.quadratic)
+     end
+     local pull_back = tweens.make(enemy,'x',enemy_data.base_x,14,tweens.easings.quadratic)
+     pull_back.ease_out=true
+     pull_back.on_complete = function()
+      enemy.sprite_id = 4
+      fanim = false
+     end
     end
    else
     color(14)
@@ -130,8 +147,31 @@ function make_fight()
   end
  end
 
+ local function flose()
+  fanim = function()
+  end
+
+  fighter.sprite_id = 48
+
+  enemy_data.current_action.start()
+  enemy.flip = true
+  tweens.make(enemy,'x',128+16,30,tweens.easings.cubic).on_complete = function()
+    enemy_data.current_action.middle()
+    fighter.before_draw = function()
+      pal(7,14)
+      pal(11,14)
+      pal(10,14)
+      pal(4,14)
+      pal(12,14)
+      pal(15,2)
+      pal(14,2)
+      pal(3,2)
+      pal(8,2)
+    end
+  end
+ end
+
  local function fwin()
-  print "noooo"
   local winwait=60
   local win_heart = sprites.make(10,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
   local tweening = false
@@ -165,7 +205,6 @@ function make_fight()
     inventory.add_heart()
     win_heart.kill()
     fighter.sprite_id = 2
-    color(7)
     local jump = tweens.make(fighter,'y',fighter.y-5,14,tweens.easings.cubic)
     jump.ease_out = true
     jump.on_complete = exit_battle
@@ -174,9 +213,6 @@ function make_fight()
  end
 
  local function fattack()
-  -- local charging=true
-  local pull_back
-
   enemy_data.current_action.start()
 
   fanim = function()
@@ -195,8 +231,8 @@ function make_fight()
    enemy.x+=8
    enemy.sprite_id=6
 
-   if enemy_data.hp <= 0 then
-    fwin()
+   if enemy_data.current_action.win then
+    fanim = false
    else
     local recede = tweens.make(fighter,'x',ofpx,12,tweens.easings.quadratic)
     fighter.sprite_id = 2
@@ -213,9 +249,6 @@ function make_fight()
  end
 
  local function fattack_fail()
-  -- local charging=true
-  local pull_back
-
   enemy_data.current_action.start()
 
   fanim = function()
@@ -226,6 +259,8 @@ function make_fight()
   local approach = tweens.make(fighter,'x',enemy.x-16,20,approach_easing)
   --approach.ease_in_and_out = true
   approach.on_complete = function()
+   enemy_data.current_action.middle()
+
    fanim = function()
    end
    enemy.flip=true
@@ -393,6 +428,14 @@ function make_fight()
     fattack()
    elseif enemy_data.current_action.name == 'magic' then
     fmagic()
+   elseif enemy_data.current_action.name == 'attack_fail' then
+    fattack_fail()
+   elseif enemy_data.current_action.name == 'counterattack' then
+    fenemy_attack()
+   elseif enemy_data.current_action.name == 'lose' then
+    flose()
+   elseif enemy_data.current_action.name == 'win' then
+    fwin()
    end
   end
 
