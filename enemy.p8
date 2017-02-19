@@ -141,7 +141,7 @@ make_enemy = function(player,attributes)
     trust = 0.5,
     humility = 0.5,
     intrigue = 0.5,
-    base_x = 96,
+    base_x = 128+24+96,
     base_y = 26,
     advance_action = function()
       local todo

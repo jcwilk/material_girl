@@ -20,6 +20,7 @@ function make_inventory()
 
  obj.add_heart = function()
   local heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})
+  heart.relative_to_cam=true
   heart.centered=true
   tweens.make(heart,'y',5,30,tweens.easings.bounce_out)
   add(owned_hearts,heart)

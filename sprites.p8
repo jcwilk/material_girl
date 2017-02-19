@@ -51,6 +51,15 @@ function zspr(n,w,h,dx,dy,dz,zflp)
  sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
 end
 
+cam = {
+ x = 0,
+ y = 0,
+ alive = true,
+ apply = function()
+  camera(cam.x,cam.y)
+ end
+}
+
 -- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
 function heapsort(t, cmp)
  local n = #t
@@ -196,6 +205,10 @@ sprites = {
    if s.centered then
     x-= 4*scale
     y-= 4*scale
+   end
+   if s.relative_to_cam then
+    x+= cam.x
+    y+= cam.y
    end
    if s.rounded_position then
     x = flr(x+0.5)

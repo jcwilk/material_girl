@@ -16,6 +16,7 @@ function make_fight()
  local fighter, enemy --sprites
  local enemy_data
  local text_needs_clearing
+ local intro_slide
 
  ----
  -- fighting animation update logic
@@ -34,11 +35,11 @@ function make_fight()
  end
 
  local function reset_combat_cursor()
-  cursor(1,70)
+  cursor(128+24+1,70)
  end
 
  local function clear_text()
-  rectfill(0,70,127,127,0)
+  map(19,6,128+24,48,16,10)
   reset_combat_cursor()
  end
 
@@ -120,29 +121,45 @@ function make_fight()
  end
 
  function fintro()
+  fighter = sprites.make(0,{x=player.x+4,y=player.y+4,z=100}) -- +4 because centered
+  cam.player_x = fighter.x
   player.kill()
-  fighter = sprites.make(0,{x=-20,y=ofpy,z=100})
+
   fighter.before_draw = function()
    inventory.remap_girl_colors()
   end
   fighter.centered = true
 
-  fanim = function()
+  local after_fighter = nil
+
+  fanim=function()
   end
 
-  tweens.make(fighter,'scale',4,20,tweens.easings.quadratic).slide_out = true
-  local slide_in = tweens.make(fighter,'x',ofpx,20,tweens.easings.quadratic)
-  slide_in.ease_out = true
-  slide_in.on_complete = function()
-   color(7)
-   print("wow, a void!")
+  tweens.make(cam,'x',24,20)
+  tweens.make(fighter,'x',fighter.x+4,5).on_complete = function()
+   tweens.make(fighter,'y',fighter.y+8,10)
+   tweens.make(fighter,'x',fighter.x+12,15).on_complete = function()
+    tweens.make(fighter,'y',coastline_y,50).on_complete = function()
+     tweens.make(cam,'x',128+24,80)
+     tweens.make(fighter,'x',ofpx,80).on_complete = function()
+      tweens.make(fighter,'y',ofpy,40)
+      tweens.make(fighter,'scale',4,40).on_complete = function()
+       after_fighter()
+      end
+     end
+    end
+   end
+  end
+
+  after_fighter = function()
    enemy.hide = false
-   tweens.make(enemy,'scale',4,20,tweens.easings.quadratic).ease_out = true
+   --tweens.make(enemy,'scale',4,20,tweens.easings.quadratic).ease_out = true
    local e_slide_in = tweens.make(enemy,'x',enemy_data.base_x,20,tweens.easings.quadratic)
    e_slide_in.ease_out = true
    e_slide_in.on_complete = function()
-    enemy_data.intro_speech()
+    --enemy_data.intro_speech()
     fanim = false
+    intro_slide = false
    end
   end
  end
@@ -309,7 +326,7 @@ function make_fight()
      pal(8,inventory.ring_color)
     end
     h.centered = true
-    h.flight_tween = tweens.make(h,'x',131,flr(15+16*rnd()),tweens.easings.cubic)
+    h.flight_tween = tweens.make(h,'x',cam.x+131,flr(15+16*rnd()),tweens.easings.cubic)
     add(hearts,h)
    end
    fanim = function()
@@ -447,18 +464,15 @@ function make_fight()
  -----------------------
  local function draw_fui()
   if not fanim then
-   color(1)
-
-   --rectfill(0,0,255,255)
    color(7)
-   spr(43,25,61)
-   cursor(34,63)
+   spr(43,cam.x+25,cam.y+61)
+   cursor(cam.x+34,cam.y+63)
    print("withdraw")
-   spr(42,46,53)
-   cursor(55,55)
+   spr(42,cam.x+46,cam.y+53)
+   cursor(cam.x+55,cam.y+55)
    print("dazzle")
-   spr(44,67,61)
-   cursor(76,63)
+   spr(44,cam.x+67,cam.y+61)
+   cursor(cam.x+76,cam.y+63)
    print("advance")
 
    reset_combat_cursor()
@@ -491,12 +505,12 @@ function make_fight()
   else
    bar_width = flr(20*percentage)
   end
-  rectfill(left_x,top_y,left_x+21,top_y+2,5)
+  rectfill(cam.x+left_x,cam.y+top_y,cam.x+left_x+21,cam.y+top_y+2,5)
   if bar_width > 0 then
-   rectfill(left_x+21-bar_width,top_y+1,left_x+20,top_y+1,color)
+   rectfill(cam.x+left_x+21-bar_width,cam.y+top_y+1,cam.x+left_x+20,cam.y+top_y+1,color)
   end
   if bar_width < 20 then
-   rectfill(left_x+1,top_y+1,left_x+20-bar_width,top_y+1,0)
+   rectfill(cam.x+left_x+1,cam.y+top_y+1,cam.x+left_x+20-bar_width,cam.y+top_y+1,0)
   end
  end
 
@@ -508,10 +522,23 @@ function make_fight()
 
  local function draw_fight()
   if obj.active then
+   if intro_slide then
     --clear above text
-   rectfill(0,0,127,69,0)
-   draw_fui()
-   draw_enemy_stats()
+    palt(0,false)
+    --walkabout
+    --map(0,0,0,0,128,128)
+    map(0,0,0,0,16,16)
+    --map(0,0,cam.x,0,0,128,128,4)
+    --transition+beach
+    map(16,0,128,0,32,16)
+    palt()
+   else
+    --clear above text
+    --rectfill(0,0,127,69,0)
+    map(19,0,128+24,0,16,6)
+    draw_fui()
+    draw_enemy_stats()
+   end
    sprites.draw()
    draw_kiss()
    return true
@@ -525,12 +552,15 @@ function make_fight()
   update = update_fight,
   draw = draw_fight,
   start = function()
-   queue_text(cls)
+   --queue_text(cls)
 
-   ofpx=26
+   intro_slide = true
+
+   ofpx=128+24+26
    ofpy=26
+   coastline_y=ofpy-8
 
-   enemy_data = make_enemy(fighter,{x=128,y=ofpy,z=50,hide=true})
+   enemy_data = make_enemy(fighter,{x=256+128,y=ofpy,z=50,hide=true,scale=4})
    enemy = enemy_data.sprite
 
    obj.active = true
