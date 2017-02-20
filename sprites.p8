@@ -190,9 +190,17 @@ sprites = {
   sprites.pool.make(properties)
   return properties
  end,
- draw = function()
+ draw = function(min_z,max_z)
   sprites.pool.each_in_order('z',0,function(s)
    if s.hide then
+    return
+   end
+
+   if min_z and s.z and s.z < min_z then
+    return
+   end
+
+   if max_z and s.z and s.z > max_z then
     return
    end
 

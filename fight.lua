@@ -18,6 +18,8 @@ function make_fight()
  local text_needs_clearing
  local intro_slide
  local game_over
+ local clouds = make_pool()
+ local sun
 
  ----
  -- fighting animation update logic
@@ -57,6 +59,10 @@ function make_fight()
  end
 
  local function exit_battle()
+  clouds.each(function(c)
+   c.kill()
+  end)
+  sun.kill()
   enemy.kill()
   fighter.kill()
   cam.x = 0
@@ -126,8 +132,26 @@ function make_fight()
   end
  end
 
+
+ function make_cloud(x)
+  local prox = rnd()
+  local cloud = sprites.make(flr(64+rnd()*3),{
+   x=(x or rnd()*128),
+   y=(rnd()*16),
+   z=9+prox,
+   centered=true,
+   scale_x=prox*6+2,
+   scale_y=2, --rnd()+1,
+   rounded_scale=true,
+   --scale=prox+1,
+   relative_to_cam=true
+  })
+  clouds.make(cloud)
+  tweens.make(cloud,'x',0-cloud.scale_x*4,(cloud.x+20)*10/(0.5+3*prox*prox)).on_complete = cloud.kill
+ end
+
  function fintro()
-  fighter = sprites.make(0,{x=player.x+4,y=player.y+4,z=100}) -- +4 because centered
+  fighter = sprites.make(0,{x=player.x+4,y=player.y+4,z=100,walking_scale=2}) -- +4 because centered
   cam.player_x = fighter.x
   player.kill()
 
@@ -135,6 +159,10 @@ function make_fight()
    inventory.remap_girl_colors()
   end
   fighter.centered = true
+
+  for i=1,4 do make_cloud() end
+
+  sun = sprites.make(51,{x=116,y=5,z=1,relative_to_cam=true,centered=true,rounded_position=true})
 
   local after_fighter = nil
 
@@ -492,6 +520,15 @@ function make_fight()
    return false
   end
 
+  if rnd() < 0.005 then
+   make_cloud(128+32)
+  end
+
+  if rnd() < 0.01 then
+   sun.scale_x = 1+rnd()*0.2
+   sun.scale_y = 1+rnd()*0.2
+  end
+
   if fanim then
    fanim()
    return true
@@ -584,29 +621,38 @@ function make_fight()
    draw_text()
    if game_over then
     rectfill(128+24,0,127+128+24,71,8)
+    sprites.draw(20,nil)
    elseif intro_slide then
     --clear above text
+
+    map(16+3,0,cam.x,0,16,2) --sky
+    sprites.draw(nil,19)
+
     palt(0,false)
-    --walkabout
-    --map(0,0,0,0,128,128)
-    map(16+3,0,cam.x,0,16,2)
-    map(0,0,0,0,16,16)
-    --map(0,0,cam.x,0,0,128,128,4)
+    map(0,8,0,64,16,8) --bottom half of town
     --transition+beach
 
-    map(16,2,128,16,32,14)
+    map(16,2,128,16,32,14) --beach+textbox
     palt()
+
+    palt(0,false)
+    map(0,0,0,0,16,8) --top half of town
+    palt()
+
+    sprites.draw(20,nil)
    else
     --clear above text
     --rectfill(0,0,127,69,0)
+    map(16+3,0,cam.x,0,16,2)
+    sprites.draw(nil,10)
     palt(0,false)
-    map(19,0,128+24,0,16,9)
+    map(19,2,cam.x,16,16,7)
     palt()
     draw_fui()
     draw_enemy_stats()
+    sprites.draw(11,nil)
+    draw_kiss()
    end
-   sprites.draw()
-   draw_kiss()
    return true
   else
    return false
@@ -626,7 +672,7 @@ function make_fight()
    ofpy=26
    coastline_y=ofpy-8
 
-   enemy_data = make_enemy(fighter,{x=256+128,y=ofpy,z=50,hide=true,scale=4})
+   enemy_data = make_enemy(fighter,{x=256+128,y=ofpy,z=50,hide=true,scale=4,walking_scale=2})
    enemy = enemy_data.sprite
 
    obj.active = true
