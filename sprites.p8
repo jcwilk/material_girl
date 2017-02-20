@@ -182,6 +182,9 @@ sprites = {
   if properties.rounded_scale != nil then
    properties.rounded_scale = true
   end
+  if properties.walking_scale == nil then
+   properties.walking_scale = 1
+  end
   sprites.pool.make(properties)
   return properties
  end,
@@ -198,6 +201,7 @@ sprites = {
    local x = s.x
    local y = s.y
    local scale = s.scale
+   local sprite_id = s.sprite_id
 
    if s.rounded_scale then
     scale = flr(scale+0.5)
@@ -214,8 +218,13 @@ sprites = {
     x = flr(x+0.5)
     y = flr(y+0.5)
    end
+   if s.walking then
+    local frame_index = ((flr(x)+flr(y)) % (s.walking_scale * #s.walking_frames))/s.walking_scale
+    --local frame_index = (flr(x)+flr(y)) % #s.walking_frames
+    sprite_id = s.walking_frames[flr(frame_index)+1]
+   end
 
-   zspr(s.sprite_id,1,1,x,y,scale,s.flip)
+   zspr(sprite_id,1,1,x,y,scale,s.flip)
 
    pal()
   end)

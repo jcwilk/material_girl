@@ -33,6 +33,7 @@ __lua__
 make_enemy = function(player,attributes)
   local sprite = sprites.make(4,attributes)
   sprite.centered = true
+  sprite.walking_frames = {4,5,4,6}
   local player_def = inventory.equipped_items[1]-1
   local action_index = 1
   local obj
@@ -57,11 +58,11 @@ make_enemy = function(player,attributes)
   end
 
   local function lower_stat(stat)
-    obj[stat] -= 0.1
+    obj[stat]*= 0.7
   end
 
   local function raise_stat(stat)
-    obj[stat] += 0.1
+    obj[stat]+= (1-obj[stat])*0.3
   end
 
   local function failed_withdraw_speech()
@@ -141,6 +142,10 @@ make_enemy = function(player,attributes)
     trust = 0.5,
     humility = 0.5,
     intrigue = 0.5,
+
+    closeness = 0,
+    attraction = 0,
+    patience = 0.5,
     base_x = 128+24+96,
     base_y = 26,
     advance_action = function()
@@ -166,18 +171,30 @@ make_enemy = function(player,attributes)
     withdraw = function()
       reset_actions()
 
-      obj.current_action = {
-        name = 'run',
-        start = function()
-        queue_text(function()
-          color(14)
-          print "screw this!"
-          end)
-        end,
-        middle = function()
-        queue_text(withdraw_speech)
+      if obj.closeness > 0.4 then
+        lower_stat('closeness')
+
+        obj.current_action = {
+          name="move",
+          start=function()
+          end,
+          middle=function()
+          end
+        }
+      else
+        obj.current_action = {
+          name = 'run',
+          start = function()
+          queue_text(function()
+            color(14)
+            print "screw this!"
+            end)
+          end,
+          middle = function()
+          queue_text(withdraw_speech)
+        end
+        }
       end
-      }
       -- raise_stat('humility')
       -- lower_stat('trust')
       -- if obj.trust - obj.humility > 0.5 then
@@ -228,7 +245,17 @@ make_enemy = function(player,attributes)
     advance = function()
       reset_actions()
 
-      if obj.def <= 0 then
+      if obj.closeness < 0.6 then
+        raise_stat('closeness')
+
+        obj.current_action = {
+          name="move",
+          start=function()
+          end,
+          middle=function()
+          end
+        }
+      elseif obj.def <= 0 then
         obj.current_action = {
           name = 'attack',
           start = function()
@@ -252,7 +279,6 @@ make_enemy = function(player,attributes)
             end
           end
         }
-
       else
         obj.current_action = {
           name = 'attack_fail',

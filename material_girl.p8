@@ -146,6 +146,9 @@ sprites = {
   if properties.rounded_scale != nil then
    properties.rounded_scale = true
   end
+  if properties.walking_scale == nil then
+   properties.walking_scale = 1
+  end
   sprites.pool.make(properties)
   return properties
  end,
@@ -162,6 +165,7 @@ sprites = {
    local x = s.x
    local y = s.y
    local scale = s.scale
+   local sprite_id = s.sprite_id
 
    if s.rounded_scale then
     scale = flr(scale+0.5)
@@ -178,8 +182,13 @@ sprites = {
     x = flr(x+0.5)
     y = flr(y+0.5)
    end
+   if s.walking then
+    local frame_index = ((flr(x)+flr(y)) % (s.walking_scale * #s.walking_frames))/s.walking_scale
+    --local frame_index = (flr(x)+flr(y)) % #s.walking_frames
+    sprite_id = s.walking_frames[flr(frame_index)+1]
+   end
 
-   zspr(s.sprite_id,1,1,x,y,scale,s.flip)
+   zspr(sprite_id,1,1,x,y,scale,s.flip)
 
    pal()
   end)
@@ -571,11 +580,12 @@ end
 -- when you want a new fight, discard the old object and create a new one
 function make_fight()
  local obj, fanim, first_draw, kiss --misc fight state
- local ofpx, ofpy --player state
+ local ofpx, ofpy, cfpx --player state
  local fighter, enemy --sprites
  local enemy_data
  local text_needs_clearing
  local intro_slide
+ local game_over
 
  ----
  -- fighting animation update logic
@@ -594,11 +604,13 @@ function make_fight()
  end
 
  local function reset_combat_cursor()
-  cursor(128+24+1,70)
+  cursor(128+24+1,73)
  end
 
  local function clear_text()
-  map(19,6,128+24,48,16,10)
+  palt(0,false)
+  map(19,9,128+24,72,16,7)
+  palt()
   reset_combat_cursor()
  end
 
@@ -615,7 +627,10 @@ function make_fight()
  local function exit_battle()
   enemy.kill()
   fighter.kill()
+  cam.x = 0
+  cam.y = 0
   sprites.make(player.sprite_id,player).flip = true
+  player.x-=4
   obj.active = false
  end
 
@@ -647,7 +662,7 @@ function make_fight()
      recoil.ease_out = true
      recoil.on_complete = function()
       fighter.sprite_id = 0
-      tweens.make(fighter,'x',ofpx,4,tweens.easings.quadratic)
+      tweens.make(fighter,'x',cfpx,4,tweens.easings.quadratic)
      end
 
      local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,tweens.easings.quadratic)
@@ -672,7 +687,7 @@ function make_fight()
     pull_back.on_complete = function()
      enemy.sprite_id = 4
      fighter.flip = false
-     fighter.x = ofpx
+     fighter.x = cfpx
      fanim=false
     end
    end
@@ -694,15 +709,20 @@ function make_fight()
   fanim=function()
   end
 
+  fighter.walking_frames = {0,1,0,2}
+  fighter.walking = true
+
   tweens.make(cam,'x',24,20)
   tweens.make(fighter,'x',fighter.x+4,5).on_complete = function()
    tweens.make(fighter,'y',fighter.y+8,10)
    tweens.make(fighter,'x',fighter.x+12,15).on_complete = function()
     tweens.make(fighter,'y',coastline_y,50).on_complete = function()
-     tweens.make(cam,'x',128+24,80)
-     tweens.make(fighter,'x',ofpx,80).on_complete = function()
-      tweens.make(fighter,'y',ofpy,40)
-      tweens.make(fighter,'scale',4,40).on_complete = function()
+     tweens.make(cam,'x',128+24,60)
+     tweens.make(fighter,'x',ofpx-24,20).on_complete = function()
+      tweens.make(fighter,'x',ofpx,20)
+      tweens.make(fighter,'y',ofpy,40,tweens.easings.quadratic)
+      tweens.make(fighter,'scale',4,40,tweens.easings.quadratic).on_complete = function()
+       fighter.walking = false
        after_fighter()
       end
      end
@@ -712,13 +732,15 @@ function make_fight()
 
   after_fighter = function()
    enemy.hide = false
+   enemy.walking=true
    --tweens.make(enemy,'scale',4,20,tweens.easings.quadratic).ease_out = true
-   local e_slide_in = tweens.make(enemy,'x',enemy_data.base_x,20,tweens.easings.quadratic)
+   local e_slide_in = tweens.make(enemy,'x',enemy_data.base_x,40,tweens.easings.quadratic)
    e_slide_in.ease_out = true
    e_slide_in.on_complete = function()
     --enemy_data.intro_speech()
     fanim = false
     intro_slide = false
+    enemy.walking=false
    end
   end
  end
@@ -731,8 +753,9 @@ function make_fight()
 
   enemy_data.current_action.start()
   enemy.flip = true
-  tweens.make(enemy,'x',128+16,30,tweens.easings.cubic).on_complete = function()
+  tweens.make(enemy,'x',cam.x+128+16,30,tweens.easings.cubic).on_complete = function()
     enemy_data.current_action.middle()
+    game_over = true
     fighter.before_draw = function()
       pal(7,14)
       pal(11,14)
@@ -788,17 +811,41 @@ function make_fight()
   end
  end
 
+ local function fmove()
+  enemy_data.current_action.start()
+
+  fanim = function()
+  end
+
+  cfpx = flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
+
+  fighter.sprite_id = 1
+
+  tweens.make(fighter,'x',cfpx,10)
+  local jump_up = tweens.make(fighter,'y',fighter.y-10,5,tweens.easings.quadratic)
+  jump_up.ease_out = true
+  jump_up.on_complete = function()
+   tweens.make(fighter,'y',ofpy,5,tweens.easings.quadratic).on_complete = function()
+    enemy_data.current_action.middle()
+    fighter.sprite_id = 0
+    fanim = false
+   end
+  end
+ end
+
  local function fattack()
   enemy_data.current_action.start()
 
   fanim = function()
-    fighter.sprite_id = flr(fighter.x/6)%3
   end
+
+  fighter.walking = true
 
   approach_easing = tweens.easings.merge(tweens.easings.quadratic,tweens.easings.cubic)
   local approach = tweens.make(fighter,'x',enemy.x-16,20,approach_easing)
   --approach.ease_in_and_out = true
   approach.on_complete = function()
+   fighter.walking = false
    fanim = function()
    end
 
@@ -810,7 +857,7 @@ function make_fight()
    if enemy_data.current_action.win then
     fanim = false
    else
-    local recede = tweens.make(fighter,'x',ofpx,12,tweens.easings.quadratic)
+    local recede = tweens.make(fighter,'x',cfpx,12,tweens.easings.quadratic)
     fighter.sprite_id = 2
     recede.ease_in_and_out=true
     recede.on_complete = function()
@@ -844,7 +891,7 @@ function make_fight()
    if enemy_data.hp <= 0 then
     fwin()
    else
-    local recede = tweens.make(fighter,'x',ofpx,12,tweens.easings.quadratic)
+    local recede = tweens.make(fighter,'x',cfpx,12,tweens.easings.quadratic)
     fighter.sprite_id = 2
     recede.ease_in_and_out=true
     recede.on_complete = function()
@@ -859,7 +906,7 @@ function make_fight()
  end
 
  local function fmagic()
-  local spinx = fighter.x+20
+  local spinx = fighter.x
   fighter.sprite_id = 1
 
   fanim = function()
@@ -870,8 +917,7 @@ function make_fight()
   rising.on_complete = function()
    tweens.make(fighter,'y',ofpy,5)
   end
-  tweens.make(fighter,'scale',5,10)
-  tweens.make(fighter,'x',ofpx+20,10).on_complete = function()
+  tweens.make(fighter,'scale',5,10).on_complete = function()
    enemy_data.current_action.start()
    fighter.sprite_id=2
    magwait=30
@@ -915,8 +961,7 @@ function make_fight()
      enemy_data.current_action.middle()
      fanim = function()
      end
-     tweens.make(fighter,'scale',4,10)
-     tweens.make(fighter,'x',ofpx,10,tweens.easings.cubic).on_complete = function()
+     tweens.make(fighter,'scale',4,10).on_complete = function()
       fighter.sprite_id = 0
       fanim=false
       enemy.x = enemy_data.base_x
@@ -958,26 +1003,34 @@ function make_fight()
    local tw_out = tweens.make(enemy,'x',enemy_data.base_x,20,tweens.easings.quadratic)
    tw_out.ease_in_and_out = true
    tw_out.on_complete = function()
-    fighter.x = ofpx
+    fighter.x = cfpx
     fighter.sprite_id = 0
     fanim=false
    end
   end
  end
 
+ local function press_key(sprite_id,left_x,top_y)
+  local key = sprites.make(sprite_id,{x=left_x+4,y=top_y+4})
+  key.centered = true
+  key.relative_to_cam = true
+  tweens.make(key,'scale',2,5).on_complete = key.kill
+  queue_text(clear_text)
+ end
+
  local function detect_keys()
   if btn(0) and not btn(1) and not btn(2) then
-   queue_text(clear_text)
+   press_key(43,25,61)
    enemy_data.withdraw()
    return true
   end
   if btn(1) and not btn(0) and not btn(2) then
-   queue_text(clear_text)
+   press_key(44,67,61)
    enemy_data.advance()
    return true
   end
   if btn(2) and not btn(0) and not btn(1) then
-   queue_text(clear_text)
+   press_key(42,46,53)
    enemy_data.dazzle(inventory.hearts_count)
    return true
   end
@@ -1012,6 +1065,8 @@ function make_fight()
     flose()
    elseif enemy_data.current_action.name == 'win' then
     fwin()
+   elseif enemy_data.current_action.name == 'move' then
+    fmove()
    end
   end
 
@@ -1025,18 +1080,14 @@ function make_fight()
   if not fanim then
    color(7)
    spr(43,cam.x+25,cam.y+61)
-   cursor(cam.x+34,cam.y+63)
-   print("withdraw")
+   print("withdraw",cam.x+34,cam.y+63)
    spr(42,cam.x+46,cam.y+53)
-   cursor(cam.x+55,cam.y+55)
-   print("dazzle")
+   print("dazzle",cam.x+55,cam.y+55)
    spr(44,cam.x+67,cam.y+61)
-   cursor(cam.x+76,cam.y+63)
-   print("advance")
+   print("advance",cam.x+76,cam.y+63)
 
    reset_combat_cursor()
   end
-  draw_text()
  end
 
  function draw_kiss()
@@ -1081,20 +1132,27 @@ function make_fight()
 
  local function draw_fight()
   if obj.active then
-   if intro_slide then
+   draw_text()
+   if game_over then
+    rectfill(128+24,0,127+128+24,71,8)
+   elseif intro_slide then
     --clear above text
     palt(0,false)
     --walkabout
     --map(0,0,0,0,128,128)
+    map(16+3,0,cam.x,0,16,2)
     map(0,0,0,0,16,16)
     --map(0,0,cam.x,0,0,128,128,4)
     --transition+beach
-    map(16,0,128,0,32,16)
+
+    map(16,2,128,16,32,14)
     palt()
    else
     --clear above text
     --rectfill(0,0,127,69,0)
-    map(19,0,128+24,0,16,6)
+    palt(0,false)
+    map(19,0,128+24,0,16,9)
+    palt()
     draw_fui()
     draw_enemy_stats()
    end
@@ -1136,6 +1194,7 @@ end
 make_enemy = function(player,attributes)
  local sprite = sprites.make(4,attributes)
  sprite.centered = true
+ sprite.walking_frames = {4,5,4,6}
  local player_def = inventory.equipped_items[1]-1
  local action_index = 1
  local obj
@@ -1160,11 +1219,11 @@ make_enemy = function(player,attributes)
  end
 
  local function lower_stat(stat)
-  obj[stat] -= 0.1
+  obj[stat]*= 0.7
  end
 
  local function raise_stat(stat)
-  obj[stat] += 0.1
+  obj[stat]+= (1-obj[stat])*0.3
  end
 
  local function failed_withdraw_speech()
@@ -1244,6 +1303,10 @@ make_enemy = function(player,attributes)
   trust = 0.5,
   humility = 0.5,
   intrigue = 0.5,
+
+  closeness = 0,
+  attraction = 0,
+  patience = 0.5,
   base_x = 128+24+96,
   base_y = 26,
   advance_action = function()
@@ -1269,18 +1332,30 @@ make_enemy = function(player,attributes)
   withdraw = function()
    reset_actions()
 
-   obj.current_action = {
-    name = 'run',
-    start = function()
-    queue_text(function()
-     color(14)
-     print "screw this!"
-     end)
-    end,
-    middle = function()
-    queue_text(withdraw_speech)
+   if obj.closeness > 0.4 then
+    lower_stat('closeness')
+
+    obj.current_action = {
+     name="move",
+     start=function()
+     end,
+     middle=function()
+     end
+    }
+   else
+    obj.current_action = {
+     name = 'run',
+     start = function()
+     queue_text(function()
+      color(14)
+      print "screw this!"
+      end)
+     end,
+     middle = function()
+     queue_text(withdraw_speech)
+    end
+    }
    end
-   }
    -- raise_stat('humility')
    -- lower_stat('trust')
    -- if obj.trust - obj.humility > 0.5 then
@@ -1331,7 +1406,17 @@ make_enemy = function(player,attributes)
   advance = function()
    reset_actions()
 
-   if obj.def <= 0 then
+   if obj.closeness < 0.6 then
+    raise_stat('closeness')
+
+    obj.current_action = {
+     name="move",
+     start=function()
+     end,
+     middle=function()
+     end
+    }
+   elseif obj.def <= 0 then
     obj.current_action = {
      name = 'attack',
      start = function()
@@ -1355,7 +1440,6 @@ make_enemy = function(player,attributes)
       end
      end
     }
-
    else
     obj.current_action = {
      name = 'attack_fail',
@@ -1487,25 +1571,22 @@ function update_walkabout()
  end
 
  if moved then
-  anim_t+=1
-  if anim_t == 4 then
-   anim_t=0
-   player.sprite_id+=1
-  end
+  player.walking=true
   if player.x > 119 then
    fighting=make_fight(inventory)
    fighting.start()
    return true
   end
  else
-  player.sprite_id=0
+  player.walking=false
  end
- if player.sprite_id == 3 then player.sprite_id = 1 end
  return true
 end
 
 function _init()
  player = sprites.make(0,{x=56,y=56})
+ player.walking_frames = {0,1,0,2}
+ player.walking_scale = 2
  player.before_draw = function()
   inventory.remap_girl_colors()
  end
