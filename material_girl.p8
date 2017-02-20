@@ -354,7 +354,7 @@ function make_inventory()
  --   tweens.make(h,'y',4)
  -- end
 
- for i=0,2,1 do
+ for i=1,3,1 do
   obj.add_heart()
  end
 
@@ -674,6 +674,22 @@ function make_fight()
   obj.active = false
  end
 
+ local function jump_to_closeness(on_complete)
+  cfpx = flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
+
+  fighter.sprite_id = 1
+
+  tweens.make(fighter,'x',cfpx,10)
+  local jump_up = tweens.make(fighter,'y',fighter.y-10,5,tweens.easings.quadratic)
+  jump_up.ease_out = true
+  jump_up.on_complete = function()
+   tweens.make(fighter,'y',ofpy,5,tweens.easings.quadratic).on_complete = function()
+    fighter.sprite_id = 0
+    on_complete()
+   end
+  end
+ end
+
  local function fenemy_attack()
   enemy_data.current_action.start()
   enemy.flip=false
@@ -697,13 +713,8 @@ function make_fight()
       fanim = false
      end
     else
-     fighter.sprite_id = 2
-     local recoil = tweens.make(fighter,'x',fighter.x-4,6,tweens.easings.quadratic)
-     recoil.ease_out = true
-     recoil.on_complete = function()
-      fighter.sprite_id = 0
-      tweens.make(fighter,'x',cfpx,4,tweens.easings.quadratic)
-     end
+     jump_to_closeness(function()
+     end)
 
      local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,tweens.easings.quadratic)
      rising.ease_out = true
@@ -879,20 +890,10 @@ function make_fight()
   fanim = function()
   end
 
-  cfpx = flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
-
-  fighter.sprite_id = 1
-
-  tweens.make(fighter,'x',cfpx,10)
-  local jump_up = tweens.make(fighter,'y',fighter.y-10,5,tweens.easings.quadratic)
-  jump_up.ease_out = true
-  jump_up.on_complete = function()
-   tweens.make(fighter,'y',ofpy,5,tweens.easings.quadratic).on_complete = function()
+  jump_to_closeness(function()
     enemy_data.current_action.middle()
-    fighter.sprite_id = 0
     fanim = false
-   end
-  end
+  end)
  end
 
  local function fattack()
@@ -1213,9 +1214,9 @@ function make_fight()
  end
 
  local function draw_enemy_stats()
-  draw_stat(enemy_data.trust,105,58,8)
-  draw_stat(enemy_data.humility,105,62,9)
-  draw_stat(enemy_data.intrigue,105,66,10)
+  draw_stat(enemy_data.closeness,105,58,8)
+  draw_stat(enemy_data.patience,105,62,9)
+  draw_stat(enemy_data.attraction,105,66,10)
  end
 
  local function draw_fight()
@@ -1271,6 +1272,7 @@ function make_fight()
    intro_slide = true
 
    ofpx=128+24+26
+   cfpx=ofpx
    ofpy=26
    coastline_y=ofpy-8
 
@@ -1305,22 +1307,33 @@ make_enemy = function(player,attributes)
   print "think you got the wrong idea"
  end
 
- local function attacked_speech()
-  color(12)
-  print "aint got nothin on this!"
- end
-
  local function intro_speech()
   color(7)
   print("what a beautiful baker! <3")
  end
 
- local function lower_stat(stat)
-  obj[stat]*= 0.7
+ local raise_multipliers = {
+  closeness=inventory.shoes_strength,
+  patience=inventory.lipstick_strength,
+  attraction=inventory.ring_strength
+ }
+
+ local lower_multipliers = {
+  closeness=inventory.shoes_strength,
+  patience=inventory.shoes_strength,
+  attraction=function()
+  return inventory.lipstick_strength()*1.5-inventory.dress_strength()
+  end
+ }
+
+ local function lower_stat(stat, multiplier)
+  multiplier = multiplier or lower_multipliers[stat]()
+  obj[stat]*= 1 - 0.2*(0.5+multiplier/2)
  end
 
- local function raise_stat(stat)
-  obj[stat]+= (1-obj[stat])*0.3
+ local function raise_stat(stat, multiplier)
+  multiplier = multiplier or raise_multipliers[stat]()
+  obj[stat]+= (1-obj[stat])*0.2*(0.5+multiplier/2)
  end
 
  local function failed_withdraw_speech()
@@ -1374,32 +1387,37 @@ make_enemy = function(player,attributes)
   obj.current_action = {
    name = 'counterattack',
    start = function()
-    queue_text(attacked_speech)
+    queue_text(function()
+     color(12)
+     print "aint got nothin on this!"
+    end)
    end,
    middle = function()
     queue_text(function()
      color(14)
      print "so hurtful.."
     end)
-    lower_stat('trust')
-    lower_stat('humility')
-    lower_stat('intrigue')
     inventory.remove_heart()
     if inventory.hearts_count <= 0 then
      obj.current_action.lose = true
      deferred_action = lose
+    else
+     lower_stat('closeness',1)
     end
    end
   }
+ end
+
+ local function check_counterattack()
+  if obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25*(inventory.dress_strength()/2+0.5) then
+   deferred_action = counterattack
+  end
  end
 
  obj =  {
   sprite = sprite,
   hp = 10,
   def = 1,
-  trust = 0.5,
-  humility = 0.5,
-  intrigue = 0.5,
 
   closeness = 0,
   attraction = 0,
@@ -1417,11 +1435,6 @@ make_enemy = function(player,attributes)
     obj.current_action = nil
     return nil
    end
-   -- obj.current_action = obj.actions[action_index]
-   -- if obj.current_action then
-   --   action_index+= 1
-   -- end
-   -- return obj.current_action
   end,
   take_damage = function(damage)
    obj.hp -= damage
@@ -1429,23 +1442,36 @@ make_enemy = function(player,attributes)
   withdraw = function()
    reset_actions()
 
-   if obj.closeness > 0.4 then
+   if obj.closeness > 0.3 then
     lower_stat('closeness')
+    lower_stat('patience')
 
     obj.current_action = {
      name="move",
      start=function()
+      queue_text(function()
+       color(12)
+       local picker = rnd()
+       if picker < 0.6 then
+        print "what of the time we shared?"
+       elseif picker < 0.9 then
+        print "do I mean nothing to you?"
+       else
+        print "I knew you were a mistake"
+       end
+      end)
      end,
      middle=function()
      end
     }
+    check_counterattack()
    else
     obj.current_action = {
      name = 'run',
      start = function()
-     queue_text(function()
-      color(14)
-      print "screw this!"
+      queue_text(function()
+       color(14)
+       print "screw this!"
       end)
      end,
      middle = function()
@@ -1453,58 +1479,62 @@ make_enemy = function(player,attributes)
     end
     }
    end
-   -- raise_stat('humility')
-   -- lower_stat('trust')
-   -- if obj.trust - obj.humility > 0.5 then
-   --  raise_stat('intrigue')
-   -- else
-   --  lower_stat('intrigue')
-   -- end
-   -- if obj.intrigue + obj.humility - obj.trust < 0.5 then
-   --  withdraw_speech()
-   --  return {success=true}
-   -- else
-   --  failed_withdraw_speech()
-   --  return {success=false}
-   -- end
   end,
   dazzle = function(hearts_count)
    reset_actions()
 
-   obj.current_action = {
-    name = 'magic',
-    start = function()
-     queue_text(function()
-      color(14)
-      print("behold the power...")
-     end)
-    end,
-    middle = function()
-     if obj.humility < 0.4 then
-      lower_stat('intrigue')
-     elseif obj.humility > 0.6 then
-      raise_stat('intrigue')
+   if obj.closeness > 0.7 - inventory.ring_strength()/10 then
+    obj.current_action = {
+     name = 'move',
+     start = function()
+     end,
+     middle = function()
      end
-     if obj.trust < 0.4 then
-      lower_stat('trust')
-      lower_stat('humility')
-     elseif obj.trust > 0.6 then
-      raise_stat('trust')
-      raise_stat('humility')
-     end
-     obj.def-= hearts_count/3.999
-     queue_text(function()
-      color(14)
-      print("of my loveliness!")
-     end)
+    }
+    deferred_action = function()
+     obj.current_action = {
+      name = 'move',
+      start = function()
+      end,
+      middle = function()
+       lower_stat('patience')
+       queue_text(function()
+        color(12)
+        print("your quirks test my patience")
+        color(14)
+        print("we've grown too close")
+        print("his eyes no longer twinkle")
+       end)
+      end
+     }
     end
-   }
+    check_counterattack()
+   else
+    obj.current_action = {
+     name = 'magic',
+     start = function()
+      queue_text(function()
+       color(14)
+       print("behold the power...")
+      end)
+     end,
+     middle = function()
+      raise_stat('attraction')
+      queue_text(function()
+       color(14)
+       print("of my loveliness!")
+      end)
+     end
+    }
+    check_counterattack()
+   end
   end,
   advance = function()
    reset_actions()
 
-   if obj.closeness < 0.6 then
+   if obj.closeness < 0.7 then
     raise_stat('closeness')
+    lower_stat('patience')
 
     obj.current_action = {
      name="move",
@@ -1513,7 +1543,7 @@ make_enemy = function(player,attributes)
      middle=function()
      end
     }
-   elseif obj.def <= 0 then
+   elseif inventory.hearts_count/obj.attraction < (0.5+inventory.dress_strength()/2)*rnd()*10 then
     obj.current_action = {
      name = 'attack',
      start = function()
@@ -1527,11 +1557,10 @@ make_enemy = function(player,attributes)
        color(14)
        print "mwa! :*"
       end)
-      raise_stat('trust')
-      raise_stat('humility')
-      raise_stat('intrigue')
+      raise_stat('patience')
+      lower_stat('attraction')
       obj.hp-=inventory.equipped_items[2]
-      if obj.hp <= 0 then
+      if obj.hp <= 0 then --TODO: if all 4 final items, he recovers
        obj.current_action.win = true
        deferred_action = win
       end
@@ -1547,13 +1576,14 @@ make_enemy = function(player,attributes)
       end)
      end,
      middle = function()
+      lower_stat('attraction')
       queue_text(function()
        color(12)
        print "not so fast..."
       end)
      end
     }
-    deferred_action = counterattack
+    check_counterattack()
    end
   end,
   intro_speech = intro_speech

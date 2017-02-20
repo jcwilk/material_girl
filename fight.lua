@@ -72,6 +72,22 @@ function make_fight()
   obj.active = false
  end
 
+ local function jump_to_closeness(on_complete)
+  cfpx = flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
+
+  fighter.sprite_id = 1
+
+  tweens.make(fighter,'x',cfpx,10)
+  local jump_up = tweens.make(fighter,'y',fighter.y-10,5,tweens.easings.quadratic)
+  jump_up.ease_out = true
+  jump_up.on_complete = function()
+   tweens.make(fighter,'y',ofpy,5,tweens.easings.quadratic).on_complete = function()
+    fighter.sprite_id = 0
+    on_complete()
+   end
+  end
+ end
+
  local function fenemy_attack()
   enemy_data.current_action.start()
   enemy.flip=false
@@ -95,13 +111,8 @@ function make_fight()
       fanim = false
      end
     else
-     fighter.sprite_id = 2
-     local recoil = tweens.make(fighter,'x',fighter.x-4,6,tweens.easings.quadratic)
-     recoil.ease_out = true
-     recoil.on_complete = function()
-      fighter.sprite_id = 0
-      tweens.make(fighter,'x',cfpx,4,tweens.easings.quadratic)
-     end
+     jump_to_closeness(function()
+     end)
 
      local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,tweens.easings.quadratic)
      rising.ease_out = true
@@ -277,20 +288,10 @@ function make_fight()
   fanim = function()
   end
 
-  cfpx = flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
-
-  fighter.sprite_id = 1
-
-  tweens.make(fighter,'x',cfpx,10)
-  local jump_up = tweens.make(fighter,'y',fighter.y-10,5,tweens.easings.quadratic)
-  jump_up.ease_out = true
-  jump_up.on_complete = function()
-   tweens.make(fighter,'y',ofpy,5,tweens.easings.quadratic).on_complete = function()
+  jump_to_closeness(function()
     enemy_data.current_action.middle()
-    fighter.sprite_id = 0
     fanim = false
-   end
-  end
+  end)
  end
 
  local function fattack()
@@ -611,9 +612,9 @@ function make_fight()
  end
 
  local function draw_enemy_stats()
-  draw_stat(enemy_data.trust,105,58,8)
-  draw_stat(enemy_data.humility,105,62,9)
-  draw_stat(enemy_data.intrigue,105,66,10)
+  draw_stat(enemy_data.closeness,105,58,8)
+  draw_stat(enemy_data.patience,105,62,9)
+  draw_stat(enemy_data.attraction,105,66,10)
  end
 
  local function draw_fight()
@@ -669,6 +670,7 @@ function make_fight()
    intro_slide = true
 
    ofpx=128+24+26
+   cfpx=ofpx
    ofpy=26
    coastline_y=ofpy-8
 
