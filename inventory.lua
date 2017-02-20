@@ -38,6 +38,22 @@ function make_inventory()
   tweens.make(heart,'scale',3,10).on_complete = heart.kill
  end
 
+ obj.ring_strength = function()
+  return equipped_items[3]
+ end
+
+ obj.dress_strength = function()
+  return equipped_items[1]
+ end
+
+ obj.shoes_strength = function()
+  return equipped_items[4]
+ end
+
+ obj.lipstick_strength = function()
+  return equipped_items[2]
+ end
+
  -- obj.destroy_hearts = function()
  --  for _,h in pairs(owned_hearts) do
  --   tweens.make(h,'y',4)

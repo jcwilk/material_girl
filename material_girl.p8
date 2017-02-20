@@ -4,13 +4,15 @@ __lua__
 
 -- start ext ./sprites.p8
 --credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
-function zspr(n,w,h,dx,dy,dz,zflp)
+function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
+ stretch_x = stretch_x or dz
+ stretch_y = stretch_y or dz
  local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
  local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
  local sw = 8 * w
  local sh = 8 * h
- local dw = sw * dz
- local dh = sh * dz
+ local dw = sw * stretch_x
+ local dh = sh * stretch_y
 
  sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
 end
@@ -164,15 +166,23 @@ sprites = {
 
    local x = s.x
    local y = s.y
-   local scale = s.scale
+   local scale_x = s.scale_x or s.scale
+   local scale_y = s.scale_y or s.scale
    local sprite_id = s.sprite_id
 
    if s.rounded_scale then
-    scale = flr(scale+0.5)
+    s.scale_x = flr(scale_x+0.5)
+    s.scale_y = flr(scale_y+0.5)
    end
    if s.centered then
-    x-= 4*scale
-    y-= 4*scale
+    local anchor_x = s.anchor_x or 0.5
+    local anchor_y = s.anchor_y or 0.5
+    if s.flip then
+     anchor_x = 1-anchor_x
+     anchor_y = 1-anchor_y
+    end
+    x-= anchor_x*8*scale_x
+    y-= anchor_y*8*scale_y
    end
    if s.relative_to_cam then
     x+= cam.x
@@ -188,7 +198,7 @@ sprites = {
     sprite_id = s.walking_frames[flr(frame_index)+1]
    end
 
-   zspr(sprite_id,1,1,x,y,scale,s.flip)
+   zspr(sprite_id,1,1,x,y,nil,s.flip,scale_x,scale_y)
 
    pal()
   end)
@@ -313,6 +323,22 @@ function make_inventory()
   end
   heart.z = 220
   tweens.make(heart,'scale',3,10).on_complete = heart.kill
+ end
+
+ obj.ring_strength = function()
+  return equipped_items[3]
+ end
+
+ obj.dress_strength = function()
+  return equipped_items[1]
+ end
+
+ obj.shoes_strength = function()
+  return equipped_items[4]
+ end
+
+ obj.lipstick_strength = function()
+  return equipped_items[2]
  end
 
  -- obj.destroy_hearts = function()
@@ -924,18 +950,56 @@ function make_fight()
    --magwaitx=fpx
    local counter=0
    local hearts = {}
-   for i=1,inventory.hearts_count do
-    counter+=2
-    local h = sprites.make(10,{x=fighter.x+9+counter,y=fighter.y-10+20*rnd(),z=100+counter})
-    h.before_draw = function()
-     pal(8,inventory.ring_color)
+
+
+    fighter.scale_x = 4
+    fighter.anchor_x = 0.68
+    local spinning = {delay=5,alive=true,tween=nil}
+    local delay_tween = tweens.make(spinning,'delay',1,50,tweens.easings.quadratic)
+    delay_tween.ease_out = true
+    delay_tween.on_complete = function()
+     spinning.tween.kill()
+     enemy.x = enemy_data.base_x
+     enemy.sprite_id=4
+     fighter.flip = false
+     fighter.scale_x = nil
+     fighter.anchor_x = nil
+     enemy_data.current_action.middle()
+     tweens.make(fighter,'scale',4,10).on_complete = function()
+      fighter.sprite_id = 0
+      fanim=false
+     end
     end
-    h.centered = true
-    h.flight_tween = tweens.make(h,'x',cam.x+131,flr(15+16*rnd()),tweens.easings.cubic)
-    add(hearts,h)
-   end
+
+    do_spin = function()
+     spinning.tween = tweens.make(fighter,'scale_x',1,spinning.delay,tweens.easings.circular)
+     spinning.tween.on_complete = function()
+      fighter.flip = not fighter.flip
+      spinning.tween = tweens.make(fighter,'scale_x',4,spinning.delay,tweens.easings.circular)
+      spinning.tween.ease_out = true
+      spinning.tween.on_complete = function()
+       do_spin()
+      end
+     end
+    end
+    do_spin()
+
+   local hearts_to_make = inventory.hearts_count
+
    fanim = function()
     magwait-=1
+
+    if magwait <= 20 and magwait%5 == 0 and hearts_to_make > 0 then
+      hearts_to_make-=1
+      counter+=2
+      local h = sprites.make(10,{x=fighter.x+9+counter,y=fighter.y-10+20*rnd(),z=100+counter})
+      h.before_draw = function()
+       pal(8,inventory.ring_color)
+      end
+      h.centered = true
+      h.flight_tween = tweens.make(h,'x',cam.x+131,10+5*(4-inventory.ring_strength()),tweens.easings.cubic)
+      add(hearts,h)
+    end
 
     for _,h in pairs(hearts) do
      if h.alive and h.z > 100 and h.x > enemy.x then
@@ -945,27 +1009,6 @@ function make_fight()
       tweens.make(h,'x',enemy.x+20,5)
       tweens.make(h,'scale',4,5).on_complete = h.kill
       h.z-= 100
-     end
-    end
-
-    if flr(((50-magwait)/25)^3) % 2 == 0 then
-     fighter.flip=true
-     fighter.x = spinx+12
-    else
-     fighter.flip=false
-     fighter.x = spinx
-    end
-    if magwait <= 0 then
-     fighter.x = spinx
-     fighter.flip=false
-     enemy_data.current_action.middle()
-     fanim = function()
-     end
-     tweens.make(fighter,'scale',4,10).on_complete = function()
-      fighter.sprite_id = 0
-      fanim=false
-      enemy.x = enemy_data.base_x
-      enemy.sprite_id=4
      end
     end
    end

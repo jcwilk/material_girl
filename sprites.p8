@@ -40,13 +40,15 @@ __lua__
 
 -- START LIB
 --credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
-function zspr(n,w,h,dx,dy,dz,zflp)
+function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
+ stretch_x = stretch_x or dz
+ stretch_y = stretch_y or dz
  local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
  local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
  local sw = 8 * w
  local sh = 8 * h
- local dw = sw * dz
- local dh = sh * dz
+ local dw = sw * stretch_x
+ local dh = sh * stretch_y
 
  sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
 end
@@ -200,15 +202,23 @@ sprites = {
 
    local x = s.x
    local y = s.y
-   local scale = s.scale
+   local scale_x = s.scale_x or s.scale
+   local scale_y = s.scale_y or s.scale
    local sprite_id = s.sprite_id
 
    if s.rounded_scale then
-    scale = flr(scale+0.5)
+    s.scale_x = flr(scale_x+0.5)
+    s.scale_y = flr(scale_y+0.5)
    end
    if s.centered then
-    x-= 4*scale
-    y-= 4*scale
+    local anchor_x = s.anchor_x or 0.5
+    local anchor_y = s.anchor_y or 0.5
+    if s.flip then
+     anchor_x = 1-anchor_x
+     anchor_y = 1-anchor_y
+    end
+    x-= anchor_x*8*scale_x
+    y-= anchor_y*8*scale_y
    end
    if s.relative_to_cam then
     x+= cam.x
@@ -224,7 +234,7 @@ sprites = {
     sprite_id = s.walking_frames[flr(frame_index)+1]
    end
 
-   zspr(sprite_id,1,1,x,y,scale,s.flip)
+   zspr(sprite_id,1,1,x,y,nil,s.flip,scale_x,scale_y)
 
    pal()
   end)
