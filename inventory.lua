@@ -63,7 +63,7 @@ function make_inventory()
  --   tweens.make(h,'y',4)
  -- end
 
- for i=1,3,1 do
+ for i=1,5,1 do
   obj.add_heart()
  end
 
