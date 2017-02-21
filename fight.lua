@@ -686,7 +686,7 @@ function make_fight()
     map(19,2,cam.x,16,16,7)
     palt()
     draw_fui()
-    draw_enemy_stats()
+    --draw_enemy_stats()
     sprites.draw(11,nil)
     draw_kiss()
    end
