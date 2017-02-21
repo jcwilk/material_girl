@@ -405,7 +405,7 @@ function make_fight()
     fighter.scale_x = 4
     fighter.anchor_x = 0.68
     local spinning = {delay=5,alive=true,tween=nil}
-    local delay_tween = tweens.make(spinning,'delay',1,50,tweens.easings.quadratic)
+    local delay_tween = tweens.make(spinning,'delay',1,40+8*inventory.hearts_count,tweens.easings.quadratic)
     delay_tween.ease_out = true
     delay_tween.on_complete = function()
      spinning.tween.kill()

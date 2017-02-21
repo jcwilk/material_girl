@@ -62,13 +62,19 @@ make_enemy = function(player,attributes)
   }
 
   local raise_multipliers = {
-    closeness=inventory.shoes_strength,
+    closeness=function()
+      return 1+inventory.shoes_strength()/2
+    end,
     patience=inventory.lipstick_strength,
-    attraction=inventory.ring_strength
+    attraction=function()
+      return (4*inventory.ring_strength()+inventory.hearts_count)/3
+    end
   }
 
   local lower_multipliers = {
-    closeness=inventory.shoes_strength,
+    closeness=function()
+      return 1+inventory.shoes_strength()/2
+    end,
     patience=function()
       return inventory.shoes_strength()/4
     end,
@@ -91,11 +97,11 @@ make_enemy = function(player,attributes)
 
   local function raise_stat(stat, multiplier)
     multiplier = multiplier or raise_multipliers[stat]()
-    obj[stat]+= (1-obj[stat])*0.2*(0.5+multiplier/2)
+    obj[stat]+= (1-obj[stat])*0.1*(1+multiplier)
   end
 
   local function dazzle_check()
-    return obj.closeness > 0.7 - inventory.ring_strength()/10
+    return obj.closeness > 0.9 - inventory.ring_strength()/10
   end
 
   local function withdraw_check()
@@ -218,7 +224,7 @@ make_enemy = function(player,attributes)
 
   obj =  {
     sprite = sprite,
-    hp = 10,
+    hp = 5,
     def = 1,
 
     closeness = 0.2,
@@ -356,7 +362,7 @@ make_enemy = function(player,attributes)
             end)
             raise_stat('patience')
             lower_stat('attraction')
-            obj.hp-=inventory.equipped_items[2]
+            obj.hp-=1+inventory.lipstick_strength()
             if obj.hp <= 0 then --TODO: if all 4 final items, he recovers
               obj.current_action.win = true
               deferred_action = win
@@ -375,8 +381,8 @@ make_enemy = function(player,attributes)
           middle = function()
             lower_stat('attraction')
             queue_text(function()
-              color(12)
-              print "not so fast..."
+              color(14)
+              print "hm, he's hesitating"
             end)
           end
         }
