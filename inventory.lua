@@ -54,6 +54,10 @@ function make_inventory()
   return equipped_items[2]
  end
 
+ obj.all_max = function()
+  return obj.ring_strength() == 4 and obj.dress_strength() == 4 and obj.shoes_strength() == 4 and obj.lipstick_strength() == 4
+ end
+
  -- obj.destroy_hearts = function()
  --  for _,h in pairs(owned_hearts) do
  --   tweens.make(h,'y',4)

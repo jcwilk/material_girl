@@ -1,34 +1,6 @@
 pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
--- local fenemy_attack = function()
- --  obj.flip=false
- --  obj.sprite_id=5
-
- --  tweens.make(obj,'x',player.x+24,10,tweens.easings.quadratic).on_complete = function()
- --   player.sprite_id = 2
- --   player.x-= 2
- --   color(12)
- --   print "aint got nothin on this!"
- --   inventory.remove_heart()
- --   obj.sprite_id = 6
- --   local rising = tweens.make(obj,'y',player.y-10,7,tweens.easings.quadratic)
- --   rising.ease_out = true
- --   rising.on_complete = function()
- --    tweens.make(obj,'y',player.y,7,tweens.easings.quadratic)
- --   end
- --   local pull_back = tweens.make(obj,'x',oepx,14,tweens.easings.quadratic)
- --   pull_back.ease_out=true
- --   pull_back.on_complete = function()
- --    obj.sprite_id = 4
- --    fanim = false
- --    player.sprite_id = 0
- --    fighter.x=ofpx
- --    color(14)
- --    print "how hurtful..."
- --   end
- --  end
- -- end
 -- start lib
 make_enemy = function(player,attributes)
   local sprite = sprites.make(4,attributes)
@@ -39,18 +11,55 @@ make_enemy = function(player,attributes)
   local obj
   local deferred_action = nil
 
-  local function defended_speech()
-    color(7)
-    print "cold shoulder!"
-    color(12)
-    print "i'm sorry but i..."
-    print "think you got the wrong idea"
-  end
-
-  local function intro_speech()
-    color(7)
-    print("what a beautiful baker! <3")
-  end
+  local stat_speech = {
+    closeness={
+      high=function()
+        color(14)
+        print("we draw apart")
+        print("but i still feel close to him")
+      end,
+      mid=function()
+        color(14)
+        print("there's a divide between us but")
+        print("we're closer than we once were")
+      end,
+      low=function()
+        color(14)
+        print("he feels so far away")
+      end
+    },
+    patience={
+      high=function()
+        color(12)
+        print("hah, such a goofball")
+      end,
+      mid=function()
+        color(12)
+        print("your quirks test my patience")
+      end,
+      low=function()
+        color(12)
+        print("if you can't respect my time")
+        print("then i can't respect you")
+      end
+    },
+    attraction={
+      high=function()
+        color(12)
+        print("your beauty defies words")
+        print("my life begins today")
+      end,
+      med=function()
+        color(12)
+        print("you're rather fetching")
+      end,
+      low=function()
+        color(12)
+        print("i'm sorry but")
+        print("i think i need space")
+      end
+    }
+  }
 
   local raise_multipliers = {
     closeness=inventory.shoes_strength,
@@ -60,7 +69,9 @@ make_enemy = function(player,attributes)
 
   local lower_multipliers = {
     closeness=inventory.shoes_strength,
-    patience=inventory.shoes_strength,
+    patience=function()
+      return inventory.shoes_strength()/4
+    end,
     attraction=function()
      return inventory.lipstick_strength()*1.5-inventory.dress_strength()
     end
@@ -69,11 +80,42 @@ make_enemy = function(player,attributes)
   local function lower_stat(stat, multiplier)
     multiplier = multiplier or lower_multipliers[stat]()
     obj[stat]*= 1 - 0.2*(0.5+multiplier/2)
+    if obj[stat] < 0.33 then
+      queue_text(stat_speech[stat].low)
+    elseif obj[stat] < 0.66 then
+      queue_text(stat_speech[stat].mid)
+    else
+      queue_text(stat_speech[stat].high)
+    end
   end
 
   local function raise_stat(stat, multiplier)
     multiplier = multiplier or raise_multipliers[stat]()
     obj[stat]+= (1-obj[stat])*0.2*(0.5+multiplier/2)
+  end
+
+  local function dazzle_check()
+    return obj.closeness > 0.7 - inventory.ring_strength()/10
+  end
+
+  local function withdraw_check()
+    return obj.closeness > 0.3
+  end
+
+  local function advance_check()
+    return obj.closeness < 0.7
+  end
+
+  local function attack_check()
+    return inventory.hearts_count/obj.attraction < (0.5+inventory.dress_strength()/2)*rnd()*10
+  end
+
+  local function counterattack_check()
+    return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25*(inventory.dress_strength()/2+0.5)
+  end
+
+  local function flee_check()
+    return obj.patience < 0.5 and obj.patience*obj.patience < rnd()*0.25*(inventory.dress_strength()/2+0.5)
   end
 
   local function failed_withdraw_speech()
@@ -148,9 +190,29 @@ make_enemy = function(player,attributes)
     }
   end
 
-  local function check_counterattack()
-    if obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25*(inventory.dress_strength()/2+0.5) then
+  local function flee()
+    obj.current_action = {
+      name = 'flee',
+      start = function()
+        queue_text(function()
+          color(12)
+          print "i have obligations elsewhere"
+        end)
+      end,
+      middle = function()
+        queue_text(function()
+          color(12)
+          print "perhaps another time"
+        end)
+      end
+    }
+  end
+
+  local function attempt_counterattack()
+    if counterattack_check() then
       deferred_action = counterattack
+    elseif flee_check() then
+      deferred_action = flee
     end
   end
 
@@ -159,9 +221,9 @@ make_enemy = function(player,attributes)
     hp = 10,
     def = 1,
 
-    closeness = 0,
-    attraction = 0,
-    patience = 0.5,
+    closeness = 0.2,
+    attraction = 0.5,
+    patience = 1.0,
     base_x = 128+24+96,
     base_y = 26,
     advance_action = function()
@@ -182,36 +244,33 @@ make_enemy = function(player,attributes)
     withdraw = function()
       reset_actions()
 
-      if obj.closeness > 0.3 then
+      if withdraw_check() then
         lower_stat('closeness')
-        lower_stat('patience')
 
         obj.current_action = {
           name="move",
           start=function()
+          end,
+          middle=function()
+
+            lower_stat('patience')
+          end
+        }
+        attempt_counterattack()
+      else
+        obj.current_action = {
+          name = 'run',
+          start = function()
             queue_text(function()
               color(12)
               local picker = rnd()
               if picker < 0.6 then
                 print "what of the time we shared?"
               elseif picker < 0.9 then
-                print "do I mean nothing to you?"
+                print "do i mean nothing to you?"
               else
-                print "I knew you were a mistake"
+                print "i knew you were a mistake."
               end
-            end)
-          end,
-          middle=function()
-          end
-        }
-        check_counterattack()
-      else
-        obj.current_action = {
-          name = 'run',
-          start = function()
-            queue_text(function()
-              color(14)
-              print "screw this!"
             end)
           end,
           middle = function()
@@ -223,7 +282,7 @@ make_enemy = function(player,attributes)
     dazzle = function(hearts_count)
       reset_actions()
 
-      if obj.closeness > 0.7 - inventory.ring_strength()/10 then
+      if dazzle_check() then
         obj.current_action = {
           name = 'move',
           start = function()
@@ -239,8 +298,6 @@ make_enemy = function(player,attributes)
             middle = function()
               lower_stat('patience')
               queue_text(function()
-                color(12)
-                print("your quirks test my patience")
                 color(14)
                 print("we've grown too close")
                 print("his eyes no longer twinkle")
@@ -248,7 +305,7 @@ make_enemy = function(player,attributes)
             end
           }
         end
-        check_counterattack()
+        attempt_counterattack()
       else
         obj.current_action = {
           name = 'magic',
@@ -266,13 +323,13 @@ make_enemy = function(player,attributes)
             end)
           end
         }
-        check_counterattack()
+        attempt_counterattack()
       end
     end,
     advance = function()
       reset_actions()
 
-      if obj.closeness < 0.7 then
+      if advance_check() then
         raise_stat('closeness')
         lower_stat('patience')
 
@@ -283,7 +340,7 @@ make_enemy = function(player,attributes)
           middle=function()
           end
         }
-      elseif inventory.hearts_count/obj.attraction < (0.5+inventory.dress_strength()/2)*rnd()*10 then
+      elseif attack_check() then
         obj.current_action = {
           name = 'attack',
           start = function()
@@ -323,7 +380,7 @@ make_enemy = function(player,attributes)
             end)
           end
         }
-        check_counterattack()
+        attempt_counterattack()
       end
     end,
     intro_speech = intro_speech

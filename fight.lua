@@ -17,6 +17,7 @@ function make_fight()
  local enemy_data
  local text_needs_clearing
  local intro_slide
+ local intro_textbox
  local game_over
  local clouds = make_pool()
  local sun
@@ -38,7 +39,7 @@ function make_fight()
  end
 
  local function reset_combat_cursor()
-  cursor(128+24+1,73)
+  cursor(128+24+2,73)
  end
 
  local function clear_text()
@@ -90,7 +91,6 @@ function make_fight()
 
  local function fenemy_attack()
   enemy_data.current_action.start()
-  enemy.flip=false
   enemy.sprite_id=5
 
   fanim = function()
@@ -180,13 +180,15 @@ function make_fight()
   fanim=function()
   end
 
+  tweens.make(intro_textbox,'y',48,60,tweens.easings.quadratic).ease_in_and_out=true
+
   fighter.walking_frames = {0,1,0,2}
   fighter.walking = true
 
   tweens.make(cam,'x',24,20)
-  tweens.make(fighter,'x',fighter.x+4,5).on_complete = function()
+  tweens.make(fighter,'x',128+4,5).on_complete = function()
    tweens.make(fighter,'y',fighter.y+8,10)
-   tweens.make(fighter,'x',fighter.x+12,15).on_complete = function()
+   tweens.make(fighter,'x',128+13,15).on_complete = function()
     tweens.make(fighter,'y',coastline_y,50).on_complete = function()
      tweens.make(cam,'x',128+24,60)
      tweens.make(fighter,'x',ofpx-24,20).on_complete = function()
@@ -224,6 +226,7 @@ function make_fight()
 
   enemy_data.current_action.start()
   enemy.flip = true
+  enemy.walking=true
   tweens.make(enemy,'x',cam.x+128+16,30,tweens.easings.cubic).on_complete = function()
     enemy_data.current_action.middle()
     game_over = true
@@ -242,6 +245,17 @@ function make_fight()
  end
 
  local function fwin()
+  if inventory.all_max() then
+   queue_text(function()
+    color(11)
+    print("you win! probably...")
+    print("i havne't gotten this far")
+    print("with the programming but")
+    print("good job! :D")
+    print("(sorry haha)")
+   end)
+  end
+
   local winwait=60
   local win_heart = sprites.make(10,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
   local tweening = false
@@ -361,6 +375,7 @@ function make_fight()
      enemy.sprite_id=4
      enemy.x=enemy_data.base_x
      fanim=false
+     enemy.flip=false
     end
    end
   end
@@ -443,7 +458,7 @@ function make_fight()
       h.flight_tween.kill()
       tweens.make(h,'x',enemy.x+20,5)
       tweens.make(h,'scale',4,5).on_complete = h.kill
-      h.z-= 100
+      h.z-= 60
      end
     end
    end
@@ -452,18 +467,35 @@ function make_fight()
 
  local function frun()
   enemy_data.current_action.start()
-  fighter.sprite_id = 2
+  fighter.walking = true
   fanim = function()
   end
+  enemy.walking=true
   enemy_approach = tweens.make(enemy,'x',enemy.x-10,6,tweens.easings.quadratic)
   enemy_approach.ease_in_and_out = true
   enemy_approach.on_complete = function()
+   enemy.walking=false
    enemy_data.current_action.middle()
    enemy.flip = true
-   tweens.make(fighter,'x',-16,20,tweens.easings.quadratic).on_complete = function()
+   tweens.make(fighter,'y',fighter.y-24,60)
+   tweens.make(fighter,'x',-16,60,tweens.easings.quadratic).on_complete = function()
+    fighter.walking=false
     exit_battle()
    end
-   tweens.make(fighter,'scale',1,20,tweens.easings.quadratic)
+   tweens.make(fighter,'scale',1,60,tweens.easings.quadratic)
+  end
+ end
+
+ local function fflee()
+  enemy_data.current_action.start()
+  enemy.walking = true
+  fanim = function()
+  end
+  enemy.flip=true
+  enemy_data.current_action.middle()
+  tweens.make(enemy,'x',cam.x+140,60,tweens.easings.quadratic).on_complete = function()
+   enemy.walking=false
+   exit_battle()
   end
  end
 
@@ -554,6 +586,8 @@ function make_fight()
     fwin()
    elseif enemy_data.current_action.name == 'move' then
     fmove()
+   elseif enemy_data.current_action.name == 'flee' then
+    fflee()
    end
   end
 
@@ -630,14 +664,16 @@ function make_fight()
     sprites.draw(nil,19)
 
     palt(0,false)
-    map(0,8,0,64,16,8) --bottom half of town
+    map(0,6,0,48,19,10) --bottom half of town
     --transition+beach
 
-    map(16,2,128,16,32,14) --beach+textbox
+    map(16,2,128,16,32,4) --beach
+
     palt()
 
     palt(0,false)
     map(0,0,0,0,16,8) --top half of town
+    map(19,6,cam.x,intro_textbox.y,16,10) --textbox
     palt()
 
     sprites.draw(20,nil)
@@ -668,6 +704,10 @@ function make_fight()
    --queue_text(cls)
 
    intro_slide = true
+   intro_textbox = {
+    alive=true,
+    y=128
+   }
 
    ofpx=128+24+26
    cfpx=ofpx
