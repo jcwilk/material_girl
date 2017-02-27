@@ -185,12 +185,12 @@ function make_fight()
   fighter.walking_frames = {0,1,0,2}
   fighter.walking = true
 
-  tweens.make(cam,'x',24,20)
+  tweens.make(cam,'x',24,20).rounding=true
   tweens.make(fighter,'x',128+4,5).on_complete = function()
    tweens.make(fighter,'y',fighter.y+8,10)
    tweens.make(fighter,'x',128+13,15).on_complete = function()
     tweens.make(fighter,'y',coastline_y,50).on_complete = function()
-     tweens.make(cam,'x',128+24,60)
+     tweens.make(cam,'x',128+24,60).rounding=true
      tweens.make(fighter,'x',ofpx-24,20).on_complete = function()
       tweens.make(fighter,'x',ofpx,20)
       tweens.make(fighter,'y',ofpy,40,tweens.easings.quadratic)
