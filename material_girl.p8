@@ -2,6 +2,101 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 
+-- start ext ./utils.p8
+noop_f = function()
+end
+
+id_f = function(val)
+ return val
+end
+
+cam = {
+ x = 0,
+ y = 0,
+ alive = true,
+ apply = function()
+  camera(cam.x,cam.y)
+ end
+}
+
+promises = {
+ make = function(on_success)
+  local queued_promises = {}
+  local resolved = false
+  local value = nil
+
+  -- https://promisesaplus.com/#point-45
+  local promise_resolution = function(promise,x)
+   if type(x) == 'table' and type(x.next) == 'function' then
+    x.next(promise.on_success)
+   else
+    promise.resolve(x)
+   end
+  end
+
+  local obj
+  obj = {
+   on_success = on_success or id_f,
+   resolve=function(v)
+    if not resolved then
+     resolved = true
+     value = obj.on_success(v)
+     foreach(queued_promises,function(p)
+      promise_resolution(p,value)
+     end)
+    end
+   end,
+   next=function(on_s)
+    local new_promise = promises.make(on_s)
+    if resolved then
+     promise_resolution(new_promise,value)
+    else
+     add(queued_promises,new_promise)
+    end
+    return new_promise
+   end
+  }
+  return obj
+ end,
+ all = function(promise_table)
+  local remaining = #promise_table
+  local promise = promises.make()
+  for p in all(promise_table) do
+   p.next(function()
+    remaining-=1
+    if remaining == 0 then
+     promise.resolve()
+    end
+   end)
+  end
+  return promise
+ end
+}
+
+delays = {
+ pool={},
+ process=function()
+  for p in all(delays.pool) do
+   p()
+  end
+ end,
+ make=function(count,promise_f)
+  local promise = promises.make(promise_f)
+  local process = function()
+   if count <= 0 then
+    del(delays.pool,process)
+    promise.resolve(promise_val)
+   else
+    count-=1
+   end
+  end
+  add(delays.pool,process)
+  return promise
+ end
+}
+
+-- end ext
+
 -- start ext ./sprites.p8
 --credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
 function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
@@ -16,15 +111,6 @@ function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
 
  sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
 end
-
-cam = {
- x = 0,
- y = 0,
- alive = true,
- apply = function()
-  camera(cam.x,cam.y)
- end
-}
 
 -- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
 function heapsort(t, cmp)
