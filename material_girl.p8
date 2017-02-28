@@ -28,7 +28,9 @@ promises = {
   -- https://promisesaplus.com/#point-45
   local promise_resolution = function(promise,x)
    if type(x) == 'table' and type(x.next) == 'function' then
-    x.next(promise.on_success)
+    x.next(function(v)
+     promise.resolve(v)
+    end)
    else
     promise.resolve(x)
    end
@@ -334,15 +336,18 @@ tweens = {
   end
  },
  pool = make_pool(),
- make = function(sprite,property,final,tim,easing)
-  local time=tim
+ make = function(sprite,property,final,time,easing,options)
   local initial = sprite[property]
   local diff = final - initial
   local count = 0
-  local easing = easing or function(k)
-   return k
+  if not easing then
+   easing = id_f
+  elseif type(easing) == 'string' then
+   easing = tweens.easings[easing]
   end
-  local tween = {}
+  local tween = options or {}
+  tween.promise = promises.make()
+  tween.next = tween.promise.next
   tween.advance = function()
    if not sprite.alive then
     tween.kill()
@@ -364,8 +369,9 @@ tweens = {
    if count >= time then
     tween.kill()
     if tween.on_complete then
-     tween.on_complete()
+     tween.next(tween.on_complete)
     end
+    tween.promise.resolve()
    end
   end
   tweens.pool.make(tween)

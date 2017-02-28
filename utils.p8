@@ -27,7 +27,9 @@ promises = {
     -- https://promisesaplus.com/#point-45
     local promise_resolution = function(promise,x)
       if type(x) == 'table' and type(x.next) == 'function' then
-        x.next(promise.on_success)
+        x.next(function(v)
+          promise.resolve(v)
+        end)
       else
         promise.resolve(x)
       end
@@ -109,7 +111,9 @@ function _init()
     out(v)
     return v
   end).next(function(v)
-    out(v..'2')
+    v=v..'2'
+    out(v)
+    return v
   end)
   promise.resolve('straight_chain')
 
@@ -124,22 +128,37 @@ function _init()
   end)
 
   local promise_linkage = promises.make()
-  promise_linkage.next(function(v)
-    out(v..'_link')
-    return v
-  end)
+  -- promise_linkage.next(function(v)
+  --   out(v..'_link')
+  --   return v
+  -- end)
+
+  local promise_linkage2 = promises.make()
+  -- promise_linkage2.next(function(v)
+  --   out(v..'_link2')
+  --   return v
+  -- end)
 
   local promise = promises.make()
   promise.next(function(v)
     out(v..'_start')
     return promise_linkage
   end).next(function(v)
-    return out(v..'_final')
+    out(v..'_start')
+    return promise_linkage2
+  end).next(function(v)
+    out(v..'_final')
+    return v
+  end).next(function(v)
+    out(v..'_final')
+    return v
   end)
   out('first resolve')
-  promise.resolve('linkage1')
+  promise.resolve('base')
   out('second resolve')
-  promise_linkage.resolve('linkage2')
+  promise_linkage.resolve('link1')
+  out('third_resolve')
+  promise_linkage2.resolve('link2')
 
   local promise = promises.make()
   promise.next(function(v)

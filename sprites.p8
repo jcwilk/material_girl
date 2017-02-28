@@ -38,6 +38,103 @@ __lua__
 --  }
 -- end
 
+-- start ext ./utils.p8
+noop_f = function()
+end
+
+id_f = function(val)
+ return val
+end
+
+cam = {
+ x = 0,
+ y = 0,
+ alive = true,
+ apply = function()
+  camera(cam.x,cam.y)
+ end
+}
+
+promises = {
+ make = function(on_success)
+  local queued_promises = {}
+  local resolved = false
+  local value = nil
+
+  -- https://promisesaplus.com/#point-45
+  local promise_resolution = function(promise,x)
+   if type(x) == 'table' and type(x.next) == 'function' then
+    x.next(function(v)
+     promise.resolve(v)
+    end)
+   else
+    promise.resolve(x)
+   end
+  end
+
+  local obj
+  obj = {
+   on_success = on_success or id_f,
+   resolve=function(v)
+    if not resolved then
+     resolved = true
+     value = obj.on_success(v)
+     foreach(queued_promises,function(p)
+      promise_resolution(p,value)
+     end)
+    end
+   end,
+   next=function(on_s)
+    local new_promise = promises.make(on_s)
+    if resolved then
+     promise_resolution(new_promise,value)
+    else
+     add(queued_promises,new_promise)
+    end
+    return new_promise
+   end
+  }
+  return obj
+ end,
+ all = function(promise_table)
+  local remaining = #promise_table
+  local promise = promises.make()
+  for p in all(promise_table) do
+   p.next(function()
+    remaining-=1
+    if remaining == 0 then
+     promise.resolve()
+    end
+   end)
+  end
+  return promise
+ end
+}
+
+delays = {
+ pool={},
+ process=function()
+  for p in all(delays.pool) do
+   p()
+  end
+ end,
+ make=function(count,promise_f)
+  local promise = promises.make(promise_f)
+  local process = function()
+   if count <= 0 then
+    del(delays.pool,process)
+    promise.resolve(promise_val)
+   else
+    count-=1
+   end
+  end
+  add(delays.pool,process)
+  return promise
+ end
+}
+
+-- end ext
+
 -- START LIB
 --credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
 function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
@@ -275,15 +372,18 @@ tweens = {
   end
  },
  pool = make_pool(),
- make = function(sprite,property,final,tim,easing)
-  local time=tim
+ make = function(sprite,property,final,time,easing,options)
   local initial = sprite[property]
   local diff = final - initial
   local count = 0
-  local easing = easing or function(k)
-   return k
+  if not easing then
+   easing = id_f
+  elseif type(easing) == 'string' then
+   easing = tweens.easings[easing]
   end
-  local tween = {}
+  local tween = options or {}
+  tween.promise = promises.make()
+  tween.next = tween.promise.next
   tween.advance = function()
    if not sprite.alive then
     tween.kill()
@@ -305,8 +405,9 @@ tweens = {
    if count >= time then
     tween.kill()
     if tween.on_complete then
-     tween.on_complete()
+     tween.next(tween.on_complete)
     end
+    tween.promise.resolve()
    end
   end
   tweens.pool.make(tween)
@@ -340,34 +441,31 @@ function _update()
    --2\cdot \log \left(x+0.5\right)+0.6
    return sqrt(k)
   end
-  local down = nil
-  local left = function()
-   arrow.before_draw = function()
-    pal(8,13)
-   end
-   tweens.make(arrow,'x',20,duration,easing).on_complete = down
+
+  local function loop()
+    arrow.before_draw = function()
+     pal(8,13)
+    end
+    tweens.make(arrow,'y',100,duration,easing).next(function()
+     arrow.before_draw = function()
+      pal(8,11)
+     end
+     arrow.z = -10
+     return tweens.make(arrow,'x',100,duration,easing)
+    end).next(function()
+     arrow.before_draw = function()
+      pal(8,12)
+     end
+     arrow.z = 10
+     return tweens.make(arrow,'y',20,duration,easing)
+    end).next(function()
+     arrow.before_draw = function()
+      pal(8,14)
+     end
+     return tweens.make(arrow,'x',20,duration,easing)
+    end).next(loop)
   end
-  local up = function()
-   arrow.before_draw = function()
-    pal(8,12)
-   end
-   arrow.z = 10
-   tweens.make(arrow,'y',20,duration,easing).on_complete = left
-  end
-  local right = function()
-   arrow.before_draw = function()
-    pal(8,11)
-   end
-   arrow.z = -10
-   tweens.make(arrow,'x',100,duration,easing).on_complete = up
-  end
-  down = function()
-   arrow.before_draw = function()
-    pal(8,14)
-   end
-   tweens.make(arrow,'y',100,duration,easing).on_complete = right
-  end
-  down()
+  loop()
   local bigger = nil
   local smaller = function()
    tweens.make(arrow,'scale',4,30,easing).on_complete = bigger

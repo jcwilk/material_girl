@@ -27,25 +27,28 @@ def extract_from_file(filename)
   lines
 end
 
-tmp = File.open('out.tmp','w')
-inserting = false
-File.readlines('material_girl.p8').each do |line|
-  if !inserting
-    tmp << line
-    if line =~ /-- ?START EXT ([^ ]+)\w*$/i
-      extract_from_file($1.strip).each {|l| tmp << l }
-      inserting = true
+def compile_file(filename)
+  tmp = File.open('out.tmp','w')
+  inserting = false
+  File.readlines(filename).each do |line|
+    if !inserting
+      tmp << line
+      if line =~ /-- ?START EXT ([^ ]+)\w*$/i
+        extract_from_file($1.strip).each {|l| tmp << l }
+        inserting = true
+      end
+    elsif line =~ /-- ?END EXT/i
+      tmp << line
+      inserting = false
     end
-  elsif line =~ /-- ?END EXT/i
-    tmp << line
-    inserting = false
   end
+  tmp.close
+  FileUtils.mv('out.tmp',filename)
 end
-tmp.close
-FileUtils.mv('out.tmp','material_girl.p8')
 
-
-
+Dir["./*"].each do |filename|
+  compile_file(filename)
+end
 
 
 
