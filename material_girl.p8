@@ -165,223 +165,288 @@ function heapsort(t, cmp)
 end
 
 -- sprite stuffs
-make_pool = function()
- local store = {}
- local id_counter = 0
- local each = function(f)
-  for v in all(store) do
-   if v.alive then
-    f(v)
-   end
+--credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
+function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
+  stretch_x = stretch_x or dz
+  stretch_y = stretch_y or dz
+  local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
+  local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
+  local sw = 8 * w
+  local sh = 8 * h
+  local dw = sw * stretch_x
+  local dh = sh * stretch_y
+
+  sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
+end
+
+-- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
+function heapsort(t, cmp)
+  local n = #t
+  if n <= 1 then
+    return
   end
- end
- return {
-  each = each,
-  each_in_order = function(key, default, f)
-   local sorted = {}
-   each(function(v)
-    add(sorted,v)
-   end)
-   heapsort(sorted,function(a,b)
-    a = a[key] or default
-    b = b[key] or default
+  local i, j, temp
+  local lower = flr(n / 2) + 1
+  local upper = n
+  cmp = cmp or function(a,b)
     if a < b then
-     return -1
+      return -1
     elseif a == b then
-     return 0
+      return 0
     else
-     return 1
+      return 1
     end
-   end)
-   for _,val in pairs(sorted) do
-    f(val)
-   end
-  end,
-  store = store,
-  make = function(obj)
-   obj = obj or {}
-   obj.alive = true
-   local id = false
-
-   for k,v in pairs(store) do
-    if not v.alive then
-     id = k
-    end
-   end
-
-   if not id then
-    id_counter+= 1
-    id = id_counter
-   end
-   store[id] = obj
-   obj.kill = function()
-    obj.alive = false
-   end
   end
- }
+  while 1 do
+    if lower > 1 then
+      lower -= 1
+      temp = t[lower]
+    else
+      temp = t[upper]
+      t[upper] = t[1]
+      upper -= 1
+      if upper == 1 then
+        t[1] = temp
+        return
+      end
+    end
+
+    i = lower
+    j = lower * 2
+    while j <= upper do
+      if j < upper and cmp(t[j], t[j+1]) < 0 then
+        j += 1
+      end
+      if cmp(temp, t[j]) < 0 then
+        t[i] = t[j]
+        i = j
+        j += i
+      else
+        j = upper + 1
+      end
+    end
+    t[i] = temp
+  end
+end
+
+-- sprite stuffs
+make_pool = function()
+  local store = {}
+  local id_counter = 0
+  local each = function(f)
+    for v in all(store) do
+      if v.alive then
+        f(v)
+      end
+    end
+  end
+  return {
+    each = each,
+    each_in_order = function(key, default, f)
+      local sorted = {}
+      each(function(v)
+        add(sorted,v)
+      end)
+      heapsort(sorted,function(a,b)
+        a = a[key] or default
+        b = b[key] or default
+        if a < b then
+          return -1
+        elseif a == b then
+          return 0
+        else
+          return 1
+        end
+      end)
+      for _,val in pairs(sorted) do
+        f(val)
+      end
+    end,
+    store = store,
+    make = function(obj)
+      obj = obj or {}
+      obj.alive = true
+      local id = false
+
+      for k,v in pairs(store) do
+        if not v.alive then
+          id = k
+        end
+      end
+
+      if not id then
+        id_counter+= 1
+        id = id_counter
+      end
+      store[id] = obj
+      obj.kill = function()
+        obj.alive = false
+      end
+    end
+  }
 end
 
 sprites = {
- pool = make_pool(),
- make = function(sprite_id, properties)
-  properties = properties or {}
-  properties.sprite_id = sprite_id
-  properties.scale = properties.scale or 1
-  if properties.flip == nil then
-   properties.flip = false
-  end
-  if properties.rounded_position != nil then
-   properties.rounded_position = true
-  end
-  if properties.rounded_scale != nil then
-   properties.rounded_scale = true
-  end
-  if properties.walking_scale == nil then
-   properties.walking_scale = 1
-  end
-  sprites.pool.make(properties)
-  return properties
- end,
- draw = function(min_z,max_z)
-  sprites.pool.each_in_order('z',0,function(s)
-   if s.hide then
-    return
-   end
-
-   if min_z and s.z and s.z < min_z then
-    return
-   end
-
-   if max_z and s.z and s.z > max_z then
-    return
-   end
-
-   if s.before_draw then
-    s.before_draw()
-   end
-
-   local x = s.x
-   local y = s.y
-   local scale_x = s.scale_x or s.scale
-   local scale_y = s.scale_y or s.scale
-   local sprite_id = s.sprite_id
-
-   if s.rounded_scale then
-    s.scale_x = flr(scale_x+0.5)
-    s.scale_y = flr(scale_y+0.5)
-   end
-   if s.centered then
-    local anchor_x = s.anchor_x or 0.5
-    local anchor_y = s.anchor_y or 0.5
-    if s.flip then
-     anchor_x = 1-anchor_x
-     anchor_y = 1-anchor_y
+  pool = make_pool(),
+  make = function(sprite_id, properties)
+    properties = properties or {}
+    properties.sprite_id = sprite_id
+    properties.scale = properties.scale or 1
+    if properties.flip == nil then
+      properties.flip = false
     end
-    x-= anchor_x*8*scale_x
-    y-= anchor_y*8*scale_y
-   end
-   if s.relative_to_cam then
-    x+= cam.x
-    y+= cam.y
-   end
-   if s.rounded_position then
-    x = flr(x+0.5)
-    y = flr(y+0.5)
-   end
-   if s.walking then
-    local frame_index = ((flr(x)+flr(y)) % (s.walking_scale * #s.walking_frames))/s.walking_scale
-    --local frame_index = (flr(x)+flr(y)) % #s.walking_frames
-    sprite_id = s.walking_frames[flr(frame_index)+1]
-   end
+    if properties.rounded_position != nil then
+      properties.rounded_position = true
+    end
+    if properties.rounded_scale != nil then
+      properties.rounded_scale = true
+    end
+    if properties.walking_scale == nil then
+      properties.walking_scale = 1
+    end
+    sprites.pool.make(properties)
+    return properties
+  end,
+  draw = function(min_z,max_z)
+    sprites.pool.each_in_order('z',0,function(s)
+      if s.hide then
+        return
+      end
 
-   zspr(sprite_id,1,1,x,y,nil,s.flip,scale_x,scale_y)
+      if min_z and s.z and s.z < min_z then
+        return
+      end
 
-   pal()
-  end)
- end
+      if max_z and s.z and s.z > max_z then
+        return
+      end
+
+      if s.before_draw then
+        s.before_draw()
+      end
+
+      local x = s.x
+      local y = s.y
+      local scale_x = s.scale_x or s.scale
+      local scale_y = s.scale_y or s.scale
+      local sprite_id = s.sprite_id
+
+      if s.rounded_scale then
+        s.scale_x = flr(scale_x+0.5)
+        s.scale_y = flr(scale_y+0.5)
+      end
+      if s.centered then
+        local anchor_x = s.anchor_x or 0.5
+        local anchor_y = s.anchor_y or 0.5
+        if s.flip then
+          anchor_x = 1-anchor_x
+          anchor_y = 1-anchor_y
+        end
+        x-= anchor_x*8*scale_x
+        y-= anchor_y*8*scale_y
+      end
+      if s.relative_to_cam then
+        x+= cam.x
+        y+= cam.y
+      end
+      if s.rounded_position then
+        x = flr(x+0.5)
+        y = flr(y+0.5)
+      end
+      if s.walking then
+        local frame_index = ((flr(x)+flr(y)) % (s.walking_scale * #s.walking_frames))/s.walking_scale
+        --local frame_index = (flr(x)+flr(y)) % #s.walking_frames
+        sprite_id = s.walking_frames[flr(frame_index)+1]
+      end
+
+      zspr(sprite_id,1,1,x,y,nil,s.flip,scale_x,scale_y)
+
+      pal()
+    end)
+  end
 }
 
 tweens = {
- easings = {
-  linear = function(k)
-   return k
-  end,
-  quadratic = function(k)
-   return k*k
-  end,
-  cubic = function(k)
-   return k*k*k
-  end,
-  circular = function(k) -- this might technically be "sine"
-   return 1-cos(k/4)
-  end,
-  bounce_out = function(k) -- from https://github.com/photonstorm/phaser/blob/v2.4.6/src/tween/Easing.js
-   if k < ( 1 / 2.75 ) then
-    return(7.5625 * k * k)
-   elseif k < ( 2 / 2.75 ) then
-    k -=  1.5 / 2.75
-    return(7.5625 * k * k + 0.75)
-   elseif k < ( 2.5 / 2.75 ) then
-    k -= 2.25 / 2.75
-    return(7.5625 * k * k + 0.9375)
-   else
-    k -= 2.625 / 2.75
-    return(7.5625 * k * k + 0.984375)
-   end
-  end,
-  merge = function(ease_in,ease_out)
-   return function(k)
-    return 1 - ease_out(1-ease_in(k))
-   end
-  end
- },
- pool = make_pool(),
- make = function(sprite,property,final,time,easing,options)
-  local initial = sprite[property]
-  local diff = final - initial
-  local count = 0
-  if not easing then
-   easing = id_f
-  elseif type(easing) == 'string' then
-   easing = tweens.easings[easing]
-  end
-  local tween = options or {}
-  tween.promise = promises.make()
-  tween.next = tween.promise.next
-  tween.advance = function()
-   if not sprite.alive then
-    tween.kill()
-    return
-   end
-   count+= 1
-   local out
-   if tween.ease_in_and_out then
-    out = initial + diff*(1-(easing(1-easing(count/time))))
-   elseif tween.ease_out then
-    out = initial + diff*(1-(easing(1-count/time)))
-   else
-    out = initial + diff*easing(count/time)
-   end
-   if tween.rounding then
-    out = flr(out+0.5)
-   end
-   sprite[property] = out
-   if count >= time then
-    tween.kill()
-    if tween.on_complete then
-     tween.next(tween.on_complete)
+  easings = {
+    linear = function(k)
+      return k
+    end,
+    quadratic = function(k)
+      return k*k
+    end,
+    cubic = function(k)
+      return k*k*k
+    end,
+    circular = function(k) -- this might technically be "sine"
+      return 1-cos(k/4)
+    end,
+    bounce_out = function(k) -- from https://github.com/photonstorm/phaser/blob/v2.4.6/src/tween/Easing.js
+      if k < ( 1 / 2.75 ) then
+        return(7.5625 * k * k)
+      elseif k < ( 2 / 2.75 ) then
+        k -=  1.5 / 2.75
+        return(7.5625 * k * k + 0.75)
+      elseif k < ( 2.5 / 2.75 ) then
+        k -= 2.25 / 2.75
+        return(7.5625 * k * k + 0.9375)
+      else
+        k -= 2.625 / 2.75
+        return(7.5625 * k * k + 0.984375)
+      end
+    end,
+    merge = function(ease_in,ease_out)
+      return function(k)
+        return 1 - ease_out(1-ease_in(k))
+      end
     end
-    tween.promise.resolve()
-   end
+  },
+  pool = make_pool(),
+  make = function(sprite,property,final,time,easing,options)
+    local initial = sprite[property]
+    local diff = final - initial
+    local count = 0
+    if not easing then
+      easing = id_f
+    elseif type(easing) == 'string' then
+      easing = tweens.easings[easing]
+    end
+    local tween = options or {}
+    tween.promise = promises.make()
+    tween.next = tween.promise.next
+    tween.advance = function()
+      if not sprite.alive then
+        tween.kill()
+        return
+      end
+      count+= 1
+      local out
+      if tween.ease_in_and_out then
+        out = initial + diff*(1-(easing(1-easing(count/time))))
+      elseif tween.ease_out then
+        out = initial + diff*(1-(easing(1-count/time)))
+      else
+        out = initial + diff*easing(count/time)
+      end
+      if tween.rounding then
+        out = flr(out+0.5)
+      end
+      sprite[property] = out
+      if count >= time then
+        tween.kill()
+        if tween.on_complete then
+          tween.next(tween.on_complete)
+        end
+        tween.promise.resolve()
+      end
+    end
+    tweens.pool.make(tween)
+    return tween
+  end,
+  advance = function()
+    tweens.pool.each(function(t)
+      t.advance()
+    end)
   end
-  tweens.pool.make(tween)
-  return tween
- end,
- advance = function()
-  tweens.pool.each(function(t)
-   t.advance()
-  end)
- end
 }
 -- end ext
 
@@ -1818,12 +1883,7 @@ make_enemy = function(player,attributes)
  return obj
 end
 -- end ext
-
----------------------------------------------------------------
------------- end external code
----------------------------------------------------------------
-
-
+-- start ext main.lua
 -- walkabout update logic
 
 --check if tile with the min corner at x,y is overlapping with a solid tile
@@ -2000,6 +2060,7 @@ function _draw()
  map(0,0,0,0,128,128,4)
  palt()
 end
+-- end ext
 __gfx__
 0aaeaa0000aaeaa00aaeaa0000000000000444000044400000044400000000000000000000000000088188100000000000000000008880000000000000000000
 0a0acf000a00acf00a0acf0000000000000fc50000fc5000000fc50f000000000000000000000000888888810008888000000080888888000080080000000000
