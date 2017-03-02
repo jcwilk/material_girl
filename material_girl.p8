@@ -10,6 +10,119 @@ id_f = function(val)
  return val
 end
 
+-- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
+function heapsort(t, cmp)
+ local n = #t
+ if n <= 1 then
+  return
+ end
+ local i, j, temp
+ local lower = flr(n / 2) + 1
+ local upper = n
+ cmp = cmp or function(a,b)
+  if a < b then
+   return -1
+  elseif a == b then
+   return 0
+  else
+   return 1
+  end
+ end
+ while 1 do
+  if lower > 1 then
+   lower -= 1
+   temp = t[lower]
+  else
+   temp = t[upper]
+   t[upper] = t[1]
+   upper -= 1
+   if upper == 1 then
+    t[1] = temp
+    return
+   end
+  end
+
+  i = lower
+  j = lower * 2
+  while j <= upper do
+   if j < upper and cmp(t[j], t[j+1]) < 0 then
+    j += 1
+   end
+   if cmp(temp, t[j]) < 0 then
+    t[i] = t[j]
+    i = j
+    j += i
+   else
+    j = upper + 1
+   end
+  end
+  t[i] = temp
+ end
+end
+
+-- sprite stuffs
+make_pool = function()
+ local store = {}
+ local id_counter = 0
+ local each = function(f,wrap_around)
+  local all_items = all(store)
+  if wrap_around then
+   wrap_around()
+  end
+  for v in all_items do
+   if v.alive then
+    f(v)
+   end
+  end
+ end
+ return {
+  each = each,
+  each_in_order = function(key, default, f)
+   local sorted = {}
+   each(function(v)
+    add(sorted,v)
+   end)
+   heapsort(sorted,function(a,b)
+    a = a[key] or default
+    b = b[key] or default
+    if a < b then
+     return -1
+    elseif a == b then
+     return 0
+    else
+     return 1
+    end
+   end)
+   for _,val in pairs(sorted) do
+    f(val)
+   end
+  end,
+  store = store,
+  make = function(obj)
+   obj = obj or {}
+   obj.alive = true
+   local id = false
+
+   for k,v in pairs(store) do
+    if not v.alive then
+     id = k
+    end
+   end
+
+   if not id then
+    id_counter+= 1
+    id = id_counter
+   end
+   store[id] = obj
+   obj.kill = function()
+    obj.alive = false
+   end
+   return obj
+  end
+ }
+end
+
+
 cam = {
  x = 0,
  y = 0,
@@ -75,24 +188,26 @@ promises = {
  end
 }
 
+local delays
 delays = {
- pool={},
- process=function()
-  for p in all(delays.pool) do
-   p()
-  end
+ pool=make_pool(),
+ process=function(wrap_around)
+  delays.pool.each(function(o)
+   o.process()
+  end,wrap_around)
  end,
- make=function(count,promise_f)
+ make=function(count,promise_f,promise_val)
   local promise = promises.make(promise_f)
-  local process = function()
+  local obj = delays.pool.make()
+  obj.process = function()
    if count <= 0 then
     del(delays.pool,process)
     promise.resolve(promise_val)
+    obj.kill()
    else
     count-=1
    end
   end
-  add(delays.pool,process)
   return promise
  end
 }
@@ -114,339 +229,179 @@ function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
  sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
 end
 
--- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
-function heapsort(t, cmp)
- local n = #t
- if n <= 1 then
-  return
- end
- local i, j, temp
- local lower = flr(n / 2) + 1
- local upper = n
- cmp = cmp or function(a,b)
-  if a < b then
-   return -1
-  elseif a == b then
-   return 0
-  else
-   return 1
-  end
- end
- while 1 do
-  if lower > 1 then
-   lower -= 1
-   temp = t[lower]
-  else
-   temp = t[upper]
-   t[upper] = t[1]
-   upper -= 1
-   if upper == 1 then
-    t[1] = temp
-    return
-   end
-  end
-
-  i = lower
-  j = lower * 2
-  while j <= upper do
-   if j < upper and cmp(t[j], t[j+1]) < 0 then
-    j += 1
-   end
-   if cmp(temp, t[j]) < 0 then
-    t[i] = t[j]
-    i = j
-    j += i
-   else
-    j = upper + 1
-   end
-  end
-  t[i] = temp
- end
-end
-
--- sprite stuffs
---credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
-function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
-  stretch_x = stretch_x or dz
-  stretch_y = stretch_y or dz
-  local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
-  local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
-  local sw = 8 * w
-  local sh = 8 * h
-  local dw = sw * stretch_x
-  local dh = sh * stretch_y
-
-  sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
-end
-
--- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
-function heapsort(t, cmp)
-  local n = #t
-  if n <= 1 then
-    return
-  end
-  local i, j, temp
-  local lower = flr(n / 2) + 1
-  local upper = n
-  cmp = cmp or function(a,b)
-    if a < b then
-      return -1
-    elseif a == b then
-      return 0
-    else
-      return 1
-    end
-  end
-  while 1 do
-    if lower > 1 then
-      lower -= 1
-      temp = t[lower]
-    else
-      temp = t[upper]
-      t[upper] = t[1]
-      upper -= 1
-      if upper == 1 then
-        t[1] = temp
-        return
-      end
-    end
-
-    i = lower
-    j = lower * 2
-    while j <= upper do
-      if j < upper and cmp(t[j], t[j+1]) < 0 then
-        j += 1
-      end
-      if cmp(temp, t[j]) < 0 then
-        t[i] = t[j]
-        i = j
-        j += i
-      else
-        j = upper + 1
-      end
-    end
-    t[i] = temp
-  end
-end
-
--- sprite stuffs
-make_pool = function()
-  local store = {}
-  local id_counter = 0
-  local each = function(f)
-    for v in all(store) do
-      if v.alive then
-        f(v)
-      end
-    end
-  end
-  return {
-    each = each,
-    each_in_order = function(key, default, f)
-      local sorted = {}
-      each(function(v)
-        add(sorted,v)
-      end)
-      heapsort(sorted,function(a,b)
-        a = a[key] or default
-        b = b[key] or default
-        if a < b then
-          return -1
-        elseif a == b then
-          return 0
-        else
-          return 1
-        end
-      end)
-      for _,val in pairs(sorted) do
-        f(val)
-      end
-    end,
-    store = store,
-    make = function(obj)
-      obj = obj or {}
-      obj.alive = true
-      local id = false
-
-      for k,v in pairs(store) do
-        if not v.alive then
-          id = k
-        end
-      end
-
-      if not id then
-        id_counter+= 1
-        id = id_counter
-      end
-      store[id] = obj
-      obj.kill = function()
-        obj.alive = false
-      end
-    end
-  }
-end
-
 sprites = {
-  pool = make_pool(),
-  make = function(sprite_id, properties)
-    properties = properties or {}
-    properties.sprite_id = sprite_id
-    properties.scale = properties.scale or 1
-    if properties.flip == nil then
-      properties.flip = false
-    end
-    if properties.rounded_position != nil then
-      properties.rounded_position = true
-    end
-    if properties.rounded_scale != nil then
-      properties.rounded_scale = true
-    end
-    if properties.walking_scale == nil then
-      properties.walking_scale = 1
-    end
-    sprites.pool.make(properties)
-    return properties
-  end,
-  draw = function(min_z,max_z)
-    sprites.pool.each_in_order('z',0,function(s)
-      if s.hide then
-        return
-      end
-
-      if min_z and s.z and s.z < min_z then
-        return
-      end
-
-      if max_z and s.z and s.z > max_z then
-        return
-      end
-
-      if s.before_draw then
-        s.before_draw()
-      end
-
-      local x = s.x
-      local y = s.y
-      local scale_x = s.scale_x or s.scale
-      local scale_y = s.scale_y or s.scale
-      local sprite_id = s.sprite_id
-
-      if s.rounded_scale then
-        s.scale_x = flr(scale_x+0.5)
-        s.scale_y = flr(scale_y+0.5)
-      end
-      if s.centered then
-        local anchor_x = s.anchor_x or 0.5
-        local anchor_y = s.anchor_y or 0.5
-        if s.flip then
-          anchor_x = 1-anchor_x
-          anchor_y = 1-anchor_y
-        end
-        x-= anchor_x*8*scale_x
-        y-= anchor_y*8*scale_y
-      end
-      if s.relative_to_cam then
-        x+= cam.x
-        y+= cam.y
-      end
-      if s.rounded_position then
-        x = flr(x+0.5)
-        y = flr(y+0.5)
-      end
-      if s.walking then
-        local frame_index = ((flr(x)+flr(y)) % (s.walking_scale * #s.walking_frames))/s.walking_scale
-        --local frame_index = (flr(x)+flr(y)) % #s.walking_frames
-        sprite_id = s.walking_frames[flr(frame_index)+1]
-      end
-
-      zspr(sprite_id,1,1,x,y,nil,s.flip,scale_x,scale_y)
-
-      pal()
-    end)
+ pool = make_pool(),
+ make = function(sprite_id, properties)
+  properties = properties or {}
+  properties.sprite_id = sprite_id
+  properties.scale = properties.scale or 1
+  if properties.flip == nil then
+   properties.flip = false
   end
+  if properties.rounded_position != nil then
+   properties.rounded_position = true
+  end
+  if properties.rounded_scale != nil then
+   properties.rounded_scale = true
+  end
+  if properties.walking_scale == nil then
+   properties.walking_scale = 1
+  end
+  sprites.pool.make(properties)
+  return properties
+ end,
+ draw = function(min_z,max_z)
+  sprites.pool.each_in_order('z',0,function(s)
+   if s.hide then
+    return
+   end
+
+   if min_z and s.z and s.z < min_z then
+    return
+   end
+
+   if max_z and s.z and s.z > max_z then
+    return
+   end
+
+   if s.before_draw then
+    s.before_draw()
+   end
+
+   local x = s.x
+   local y = s.y
+   local scale_x = s.scale_x or s.scale
+   local scale_y = s.scale_y or s.scale
+   local sprite_id = s.sprite_id
+
+   if s.rounded_scale then
+    s.scale_x = flr(scale_x+0.5)
+    s.scale_y = flr(scale_y+0.5)
+   end
+   if s.centered then
+    local anchor_x = s.anchor_x or 0.5
+    local anchor_y = s.anchor_y or 0.5
+    if s.flip then
+     anchor_x = 1-anchor_x
+     anchor_y = 1-anchor_y
+    end
+    x-= anchor_x*8*scale_x
+    y-= anchor_y*8*scale_y
+   end
+   if s.relative_to_cam then
+    x+= cam.x
+    y+= cam.y
+   end
+   if s.rounded_position then
+    x = flr(x+0.5)
+    y = flr(y+0.5)
+   end
+   if s.walking then
+    local frame_index = ((flr(x)+flr(y)) % (s.walking_scale * #s.walking_frames))/s.walking_scale
+    --local frame_index = (flr(x)+flr(y)) % #s.walking_frames
+    sprite_id = s.walking_frames[flr(frame_index)+1]
+   end
+
+   zspr(sprite_id,1,1,x,y,nil,s.flip,scale_x,scale_y)
+
+   pal()
+  end)
+ end
 }
 
 tweens = {
-  easings = {
-    linear = function(k)
-      return k
-    end,
-    quadratic = function(k)
-      return k*k
-    end,
-    cubic = function(k)
-      return k*k*k
-    end,
-    circular = function(k) -- this might technically be "sine"
-      return 1-cos(k/4)
-    end,
-    bounce_out = function(k) -- from https://github.com/photonstorm/phaser/blob/v2.4.6/src/tween/Easing.js
-      if k < ( 1 / 2.75 ) then
-        return(7.5625 * k * k)
-      elseif k < ( 2 / 2.75 ) then
-        k -=  1.5 / 2.75
-        return(7.5625 * k * k + 0.75)
-      elseif k < ( 2.5 / 2.75 ) then
-        k -= 2.25 / 2.75
-        return(7.5625 * k * k + 0.9375)
-      else
-        k -= 2.625 / 2.75
-        return(7.5625 * k * k + 0.984375)
-      end
-    end,
-    merge = function(ease_in,ease_out)
-      return function(k)
-        return 1 - ease_out(1-ease_in(k))
-      end
-    end
-  },
-  pool = make_pool(),
-  make = function(sprite,property,final,time,easing,options)
-    local initial = sprite[property]
-    local diff = final - initial
-    local count = 0
-    if not easing then
-      easing = id_f
-    elseif type(easing) == 'string' then
-      easing = tweens.easings[easing]
-    end
-    local tween = options or {}
-    tween.promise = promises.make()
-    tween.next = tween.promise.next
-    tween.advance = function()
-      if not sprite.alive then
-        tween.kill()
-        return
-      end
-      count+= 1
-      local out
-      if tween.ease_in_and_out then
-        out = initial + diff*(1-(easing(1-easing(count/time))))
-      elseif tween.ease_out then
-        out = initial + diff*(1-(easing(1-count/time)))
-      else
-        out = initial + diff*easing(count/time)
-      end
-      if tween.rounding then
-        out = flr(out+0.5)
-      end
-      sprite[property] = out
-      if count >= time then
-        tween.kill()
-        if tween.on_complete then
-          tween.next(tween.on_complete)
-        end
-        tween.promise.resolve()
-      end
-    end
-    tweens.pool.make(tween)
-    return tween
+ easings = {
+  linear = function(k)
+   return k
   end,
-  advance = function()
-    tweens.pool.each(function(t)
-      t.advance()
-    end)
+  quadratic = function(k)
+   return k*k
+  end,
+  cubic = function(k)
+   return k*k*k
+  end,
+  circular = function(k) -- this might technically be "sine"
+   return 1-cos(k/4)
+  end,
+  bounce_out = function(k) -- from https://github.com/photonstorm/phaser/blob/v2.4.6/src/tween/Easing.js
+   if k < ( 1 / 2.75 ) then
+    return(7.5625 * k * k)
+   elseif k < ( 2 / 2.75 ) then
+    k -=  1.5 / 2.75
+    return(7.5625 * k * k + 0.75)
+   elseif k < ( 2.5 / 2.75 ) then
+    k -= 2.25 / 2.75
+    return(7.5625 * k * k + 0.9375)
+   else
+    k -= 2.625 / 2.75
+    return(7.5625 * k * k + 0.984375)
+   end
+  end,
+  merge = function(ease_in,ease_out)
+   return function(k)
+    return 1 - ease_out(1-ease_in(k))
+   end
   end
+ },
+ pool = make_pool(),
+ make = function(sprite,property,final,time,easing,options)
+  -- printh(sprite.sprite_id)
+  -- printh(property)
+  local initial = sprite[property]
+  local diff = final - initial
+  local count = 0
+  if not easing then
+   easing = id_f
+  elseif type(easing) == 'string' then
+   easing = tweens.easings[easing]
+  end
+  local tween = options or {}
+  tween.promise = promises.make()
+  tween.next = tween.promise.next
+  tween.advance = function()
+   if not sprite.alive then
+    tween.kill()
+   end
+   if not tween.alive then
+    return
+   end
+   count+= 1
+   local out
+   -- printh(sprite.sprite_id)
+   -- printh(property)
+   -- printh(final)
+   -- printh(time)
+   if tween.ease_in_and_out then
+    out = initial + diff*(1-(easing(1-easing(count/time))))
+   elseif tween.ease_out then
+    out = initial + diff*(1-(easing(1-count/time)))
+   else
+    out = initial + diff*easing(count/time)
+   end
+   if tween.rounding then
+    out = flr(out+0.5)
+   end
+   sprite[property] = out
+   if count >= time then
+    delays.make(0,function()
+     if tween.alive then
+      tween.kill()
+      if tween.on_complete then
+       tween.next(tween.on_complete)
+      end
+      tween.promise.resolve(sprite)
+     end
+    end)
+   end
+  end
+  tweens.pool.make(tween)
+  return tween
+ end,
+ advance = function()
+  tweens.pool.each(function(t)
+   t.advance()
+  end)
+ end
 }
 -- end ext
 
@@ -515,7 +470,7 @@ function make_inventory()
  --   tweens.make(h,'y',4)
  -- end
 
- for i=1,4,1 do
+ for i=1,40,1 do
   obj.add_heart()
  end
 
@@ -842,10 +797,10 @@ function make_fight()
   fighter.sprite_id = 1
 
   tweens.make(fighter,'x',cfpx,10)
-  local jump_up = tweens.make(fighter,'y',fighter.y-10,5,tweens.easings.quadratic)
+  local jump_up = tweens.make(fighter,'y',fighter.y-10,5,'quadratic')
   jump_up.ease_out = true
   jump_up.on_complete = function()
-   tweens.make(fighter,'y',ofpy,5,tweens.easings.quadratic).on_complete = function()
+   tweens.make(fighter,'y',ofpy,5,'quadratic').on_complete = function()
     fighter.sprite_id = 0
     on_complete()
    end
@@ -859,7 +814,7 @@ function make_fight()
   fanim = function()
   end
 
-  tweens.make(enemy,'x',fighter.x+24,10,tweens.easings.quadratic).on_complete = function()
+  tweens.make(enemy,'x',fighter.x+24,10,'quadratic').on_complete = function()
    enemy.sprite_id = 6
    --local attack_result = enemy_data.attack_player()
    if true then --attack_result.success then
@@ -868,7 +823,7 @@ function make_fight()
     if enemy_data.current_action.lose then
      enemy.sprite_id = 4
      fighter.sprite_id = 2
-     local falling = tweens.make(fighter,'x',fighter.x-8,40,tweens.easings.quadratic)
+     local falling = tweens.make(fighter,'x',fighter.x-8,40,'quadratic')
      falling.ease_out = true
      falling.on_complete = function()
       fanim = false
@@ -877,12 +832,12 @@ function make_fight()
      jump_to_closeness(function()
      end)
 
-     local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,tweens.easings.quadratic)
+     local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,'quadratic')
      rising.ease_out = true
      rising.on_complete = function()
-      tweens.make(enemy,'y',enemy_data.base_y,7,tweens.easings.quadratic)
+      tweens.make(enemy,'y',enemy_data.base_y,7,'quadratic')
      end
-     local pull_back = tweens.make(enemy,'x',enemy_data.base_x,14,tweens.easings.quadratic)
+     local pull_back = tweens.make(enemy,'x',enemy_data.base_x,14,'quadratic')
      pull_back.ease_out=true
      pull_back.on_complete = function()
       enemy.sprite_id = 4
@@ -943,7 +898,7 @@ function make_fight()
   fanim=function()
   end
 
-  tweens.make(intro_textbox,'y',48,60,tweens.easings.quadratic).ease_in_and_out=true
+  tweens.make(intro_textbox,'y',48,60,'quadratic').ease_in_and_out=true
 
   fighter.walking_frames = {0,1,0,2}
   fighter.walking = true
@@ -956,8 +911,8 @@ function make_fight()
      tweens.make(cam,'x',128+24,60).rounding=true
      tweens.make(fighter,'x',ofpx-24,20).on_complete = function()
       tweens.make(fighter,'x',ofpx,20)
-      tweens.make(fighter,'y',ofpy,40,tweens.easings.quadratic)
-      tweens.make(fighter,'scale',4,40,tweens.easings.quadratic).on_complete = function()
+      tweens.make(fighter,'y',ofpy,40,'quadratic')
+      tweens.make(fighter,'scale',4,40,'quadratic').on_complete = function()
        fighter.walking = false
        after_fighter()
       end
@@ -967,10 +922,11 @@ function make_fight()
   end
 
   after_fighter = function()
+   fighter.walking_scale=6
    enemy.hide = false
    enemy.walking=true
-   --tweens.make(enemy,'scale',4,20,tweens.easings.quadratic).ease_out = true
-   local e_slide_in = tweens.make(enemy,'x',enemy_data.base_x,40,tweens.easings.quadratic)
+   --tweens.make(enemy,'scale',4,20,'quadratic').ease_out = true
+   local e_slide_in = tweens.make(enemy,'x',enemy_data.base_x,40,'quadratic')
    e_slide_in.ease_out = true
    e_slide_in.on_complete = function()
     --enemy_data.intro_speech()
@@ -990,7 +946,7 @@ function make_fight()
   enemy_data.current_action.start()
   enemy.flip = true
   enemy.walking=true
-  tweens.make(enemy,'x',cam.x+128+16,30,tweens.easings.cubic).on_complete = function()
+  tweens.make(enemy,'x',cam.x+128+16,30,'cubic').on_complete = function()
     enemy_data.current_action.middle()
     game_over = true
     fighter.before_draw = function()
@@ -1032,27 +988,27 @@ function make_fight()
     winwait-=1
    end
   end
-  local float = tweens.make(enemy,'y',enemy.y-4,50,tweens.easings.quadratic)
+  local float = tweens.make(enemy,'y',enemy.y-4,50,'quadratic')
   float.on_complete = function()
    fighter.sprite_id = 0
    enemy.kill()
    kiss=false
-   local slide_out = tweens.make(win_heart,'x',fighter.x-32,12,tweens.easings.circular)
+   local slide_out = tweens.make(win_heart,'x',fighter.x-32,12,'circular')
    slide_out.ease_out = true
    slide_out.on_complete = function()
     win_heart.z = 120
-    tweens.make(win_heart,'x',fighter.x,12,tweens.easings.circular)
+    tweens.make(win_heart,'x',fighter.x,12,'circular')
    end
-   local slide_down = tweens.make(win_heart,'y',fighter.y+20,12,tweens.easings.circular)
+   local slide_down = tweens.make(win_heart,'y',fighter.y+20,12,'circular')
    slide_down.ease_out = true
    slide_down.on_complete = function()
-    tweens.make(win_heart,'y',fighter.y,12,tweens.easings.circular)
+    tweens.make(win_heart,'y',fighter.y,12,'circular')
    end
-   tweens.make(win_heart,'scale',1,24,tweens.easings.quadratic).on_complete = function()
+   tweens.make(win_heart,'scale',1,24,'quadratic').on_complete = function()
     inventory.add_heart()
     win_heart.kill()
     fighter.sprite_id = 2
-    local jump = tweens.make(fighter,'y',fighter.y-5,14,tweens.easings.cubic)
+    local jump = tweens.make(fighter,'y',fighter.y-5,14,'cubic')
     jump.ease_out = true
     jump.on_complete = exit_battle
    end
@@ -1095,7 +1051,7 @@ function make_fight()
    if enemy_data.current_action.win then
     fanim = false
    else
-    local recede = tweens.make(fighter,'x',cfpx,12,tweens.easings.quadratic)
+    local recede = tweens.make(fighter,'x',cfpx,12,'quadratic')
     fighter.sprite_id = 2
     recede.ease_in_and_out=true
     recede.on_complete = function()
@@ -1129,7 +1085,7 @@ function make_fight()
    if enemy_data.hp <= 0 then
     fwin()
    else
-    local recede = tweens.make(fighter,'x',cfpx,12,tweens.easings.quadratic)
+    local recede = tweens.make(fighter,'x',cfpx,12,'quadratic')
     fighter.sprite_id = 2
     recede.ease_in_and_out=true
     recede.on_complete = function()
@@ -1159,72 +1115,75 @@ function make_fight()
   tweens.make(fighter,'scale',5,10).on_complete = function()
    enemy_data.current_action.start()
    fighter.sprite_id=2
-   magwait=30
-   --magwaitx=fpx
    local counter=0
-   local hearts = {}
 
+   fighter.scale_x = 4
+   fighter.anchor_x = 0.68
+   local spinning = {delay=5,alive=true,tween=nil}
+   local fighter_promise = tweens.make(spinning,'delay',1,10+5*inventory.hearts_count,'quadratic',{
+    ease_out=true,
+    rounding=true
+   }).next(function()
+    spinning.tween.kill()
+    fighter.flip = false
+    fighter.scale_x = nil
+    fighter.anchor_x = nil
+    enemy_data.current_action.middle()
+   end).next(function()
+    return tweens.make(fighter,'scale',4,10)
+   end).next(function()
+    fighter.sprite_id = 0
+   end)
 
-    fighter.scale_x = 4
-    fighter.anchor_x = 0.68
-    local spinning = {delay=5,alive=true,tween=nil}
-    local delay_tween = tweens.make(spinning,'delay',1,40+8*inventory.hearts_count,tweens.easings.quadratic)
-    delay_tween.ease_out = true
-    delay_tween.on_complete = function()
-     spinning.tween.kill()
-     enemy.x = enemy_data.base_x
-     enemy.sprite_id=4
-     fighter.flip = false
-     fighter.scale_x = nil
-     fighter.anchor_x = nil
-     enemy_data.current_action.middle()
-     tweens.make(fighter,'scale',4,10).on_complete = function()
-      fighter.sprite_id = 0
-      fanim=false
-     end
-    end
-
-    do_spin = function()
-     spinning.tween = tweens.make(fighter,'scale_x',1,spinning.delay,tweens.easings.circular)
+   do_spin = function()
+    spinning.tween = tweens.make(fighter,'scale_x',1,spinning.delay,'circular')
+    spinning.tween.on_complete = function()
+     fighter.flip = not fighter.flip
+     spinning.tween = tweens.make(fighter,'scale_x',4,spinning.delay,'circular')
+     spinning.tween.ease_out = true
      spinning.tween.on_complete = function()
-      fighter.flip = not fighter.flip
-      spinning.tween = tweens.make(fighter,'scale_x',4,spinning.delay,tweens.easings.circular)
-      spinning.tween.ease_out = true
-      spinning.tween.on_complete = function()
-       do_spin()
-      end
-     end
-    end
-    do_spin()
-
-   local hearts_to_make = inventory.hearts_count
-
-   fanim = function()
-    magwait-=1
-
-    if magwait <= 20 and magwait%5 == 0 and hearts_to_make > 0 then
-      hearts_to_make-=1
-      counter+=2
-      local h = sprites.make(10,{x=fighter.x+9+counter,y=fighter.y-10+20*rnd(),z=100+counter})
-      h.before_draw = function()
-       pal(8,inventory.ring_color)
-      end
-      h.centered = true
-      h.flight_tween = tweens.make(h,'x',cam.x+131,10+5*(4-inventory.ring_strength()),tweens.easings.cubic)
-      add(hearts,h)
-    end
-
-    for _,h in pairs(hearts) do
-     if h.alive and h.z > 100 and h.x > enemy.x then
-      enemy.x+=4
-      enemy.sprite_id = 6
-      h.flight_tween.kill()
-      tweens.make(h,'x',enemy.x+20,5)
-      tweens.make(h,'scale',4,5).on_complete = h.kill
-      h.z-= 60
+      do_spin()
      end
     end
    end
+   do_spin()
+
+   local last_heart_promise
+
+   for i=1,inventory.hearts_count,1 do
+    last_heart_promise = delays.make(i*5+5).next(function()
+     local h = sprites.make(10,{x=fighter.x+9+10*rnd(),y=fighter.y-10+20*rnd(),z=100+i})
+     h.before_draw = function()
+      pal(8,inventory.ring_color)
+     end
+     h.centered = true
+     return tweens.make(h,'x',enemy_data.base_x+4*i,10+5*(4-inventory.ring_strength()),'cubic')
+    end).next(function(h)
+     enemy.x+=4
+     enemy.sprite_id = 6
+     h.z-= 60
+     tweens.make(h,'x',enemy.x+20,5)
+     return tweens.make(h,'scale',4,5)
+    end).next(function(h)
+     h.kill()
+    end)
+   end
+
+   last_heart_promise = last_heart_promise.next(function()
+    return delays.make(5)
+   end).next(function()
+    enemy.walking=true
+    enemy.walking_scale=6
+    enemy.sprite_id=4
+    return tweens.make(enemy,'x',enemy_data.base_x,8)
+   end).next(function()
+    enemy.walking=false
+    enemy.x = enemy_data.base_x
+   end)
+
+   promises.all({fighter_promise,last_heart_promise}).next(function()
+    fanim=false
+   end)
   end
  end
 
@@ -1234,18 +1193,18 @@ function make_fight()
   fanim = function()
   end
   enemy.walking=true
-  enemy_approach = tweens.make(enemy,'x',enemy.x-10,6,tweens.easings.quadratic)
+  enemy_approach = tweens.make(enemy,'x',enemy.x-10,6,'quadratic')
   enemy_approach.ease_in_and_out = true
   enemy_approach.on_complete = function()
    enemy.walking=false
    enemy_data.current_action.middle()
    enemy.flip = true
    tweens.make(fighter,'y',fighter.y-24,60)
-   tweens.make(fighter,'x',-16,60,tweens.easings.quadratic).on_complete = function()
+   tweens.make(fighter,'x',-16,60,'quadratic').on_complete = function()
     fighter.walking=false
     exit_battle()
    end
-   tweens.make(fighter,'scale',1,60,tweens.easings.quadratic)
+   tweens.make(fighter,'scale',1,60,'quadratic')
   end
  end
 
@@ -1256,30 +1215,9 @@ function make_fight()
   end
   enemy.flip=true
   enemy_data.current_action.middle()
-  tweens.make(enemy,'x',cam.x+140,60,tweens.easings.quadratic).on_complete = function()
+  tweens.make(enemy,'x',cam.x+140,60,'quadratic').on_complete = function()
    enemy.walking=false
    exit_battle()
-  end
- end
-
- local function frun_fail()
-  clear_text()
-  color(14)
-  print "screw this!"
-  fighter.sprite_id = 2
-  fanim = function()
-  end
-  fighter.x-=4
-  local tw_in = tweens.make(enemy,'x',fighter.x+30,10,tweens.easings.cubic)
-  tw_in.ease_in_and_out = true
-  tw_in.on_complete = function()
-   local tw_out = tweens.make(enemy,'x',enemy_data.base_x,20,tweens.easings.quadratic)
-   tw_out.ease_in_and_out = true
-   tw_out.on_complete = function()
-    fighter.x = cfpx
-    fighter.sprite_id = 0
-    fanim=false
-   end
   end
  end
 
@@ -1477,7 +1415,7 @@ function make_fight()
    ofpy=26
    coastline_y=ofpy-8
 
-   enemy_data = make_enemy(fighter,{x=256+128,y=ofpy,z=50,hide=true,scale=4,walking_scale=2})
+   enemy_data = make_enemy(fighter,{x=256+128,y=ofpy,z=50,hide=true,scale=4,walking_scale=6})
    enemy = enemy_data.sprite
 
    obj.active = true
@@ -2018,8 +1956,9 @@ function _init()
 end
 
 function _update()
- tweens.advance()
-
+ delays.process(function()
+  tweens.advance()
+ end)
  return fighting.update() or store.update() or update_walkabout()
 end
 

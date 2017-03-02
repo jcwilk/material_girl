@@ -46,6 +46,119 @@ id_f = function(val)
  return val
 end
 
+-- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
+function heapsort(t, cmp)
+ local n = #t
+ if n <= 1 then
+  return
+ end
+ local i, j, temp
+ local lower = flr(n / 2) + 1
+ local upper = n
+ cmp = cmp or function(a,b)
+  if a < b then
+   return -1
+  elseif a == b then
+   return 0
+  else
+   return 1
+  end
+ end
+ while 1 do
+  if lower > 1 then
+   lower -= 1
+   temp = t[lower]
+  else
+   temp = t[upper]
+   t[upper] = t[1]
+   upper -= 1
+   if upper == 1 then
+    t[1] = temp
+    return
+   end
+  end
+
+  i = lower
+  j = lower * 2
+  while j <= upper do
+   if j < upper and cmp(t[j], t[j+1]) < 0 then
+    j += 1
+   end
+   if cmp(temp, t[j]) < 0 then
+    t[i] = t[j]
+    i = j
+    j += i
+   else
+    j = upper + 1
+   end
+  end
+  t[i] = temp
+ end
+end
+
+-- sprite stuffs
+make_pool = function()
+ local store = {}
+ local id_counter = 0
+ local each = function(f,wrap_around)
+  local all_items = all(store)
+  if wrap_around then
+   wrap_around()
+  end
+  for v in all_items do
+   if v.alive then
+    f(v)
+   end
+  end
+ end
+ return {
+  each = each,
+  each_in_order = function(key, default, f)
+   local sorted = {}
+   each(function(v)
+    add(sorted,v)
+   end)
+   heapsort(sorted,function(a,b)
+    a = a[key] or default
+    b = b[key] or default
+    if a < b then
+     return -1
+    elseif a == b then
+     return 0
+    else
+     return 1
+    end
+   end)
+   for _,val in pairs(sorted) do
+    f(val)
+   end
+  end,
+  store = store,
+  make = function(obj)
+   obj = obj or {}
+   obj.alive = true
+   local id = false
+
+   for k,v in pairs(store) do
+    if not v.alive then
+     id = k
+    end
+   end
+
+   if not id then
+    id_counter+= 1
+    id = id_counter
+   end
+   store[id] = obj
+   obj.kill = function()
+    obj.alive = false
+   end
+   return obj
+  end
+ }
+end
+
+
 cam = {
  x = 0,
  y = 0,
@@ -111,24 +224,26 @@ promises = {
  end
 }
 
+local delays
 delays = {
- pool={},
- process=function()
-  for p in all(delays.pool) do
-   p()
-  end
+ pool=make_pool(),
+ process=function(wrap_around)
+  delays.pool.each(function(o)
+   o.process()
+  end,wrap_around)
  end,
- make=function(count,promise_f)
+ make=function(count,promise_f,promise_val)
   local promise = promises.make(promise_f)
-  local process = function()
+  local obj = delays.pool.make()
+  obj.process = function()
    if count <= 0 then
     del(delays.pool,process)
     promise.resolve(promise_val)
+    obj.kill()
    else
     count-=1
    end
   end
-  add(delays.pool,process)
   return promise
  end
 }
@@ -136,71 +251,6 @@ delays = {
 -- end ext
 
 -- START LIB
---credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
-function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
- stretch_x = stretch_x or dz
- stretch_y = stretch_y or dz
- local sx = (n%16)*8 --corrected from: 8 * flr(n / 32)
- local sy = flr(n/16)*8 --corrected from: 16 * (n % 32)
- local sw = 8 * w
- local sh = 8 * h
- local dw = sw * stretch_x
- local dh = sh * stretch_y
-
- sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
-end
-
--- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
-function heapsort(t, cmp)
- local n = #t
- if n <= 1 then
-  return
- end
- local i, j, temp
- local lower = flr(n / 2) + 1
- local upper = n
- cmp = cmp or function(a,b)
-  if a < b then
-   return -1
-  elseif a == b then
-   return 0
-  else
-   return 1
-  end
- end
- while 1 do
-  if lower > 1 then
-   lower -= 1
-   temp = t[lower]
-  else
-   temp = t[upper]
-   t[upper] = t[1]
-   upper -= 1
-   if upper == 1 then
-    t[1] = temp
-    return
-   end
-  end
-
-  i = lower
-  j = lower * 2
-  while j <= upper do
-   if j < upper and cmp(t[j], t[j+1]) < 0 then
-    j += 1
-   end
-   if cmp(temp, t[j]) < 0 then
-    t[i] = t[j]
-    i = j
-    j += i
-   else
-    j = upper + 1
-   end
-  end
-  t[i] = temp
- end
-end
-
--- sprite stuffs
 --credit: matt+charlie_says http://www.lexaloffle.com/bbs/?tid=2429
 function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
   stretch_x = stretch_x or dz
@@ -213,113 +263,6 @@ function zspr(n,w,h,dx,dy,dz,zflp,stretch_x,stretch_y)
   local dh = sh * stretch_y
 
   sspr(sx,sy,sw,sh, dx,dy,dw,dh, zflp)
-end
-
--- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
-function heapsort(t, cmp)
-  local n = #t
-  if n <= 1 then
-    return
-  end
-  local i, j, temp
-  local lower = flr(n / 2) + 1
-  local upper = n
-  cmp = cmp or function(a,b)
-    if a < b then
-      return -1
-    elseif a == b then
-      return 0
-    else
-      return 1
-    end
-  end
-  while 1 do
-    if lower > 1 then
-      lower -= 1
-      temp = t[lower]
-    else
-      temp = t[upper]
-      t[upper] = t[1]
-      upper -= 1
-      if upper == 1 then
-        t[1] = temp
-        return
-      end
-    end
-
-    i = lower
-    j = lower * 2
-    while j <= upper do
-      if j < upper and cmp(t[j], t[j+1]) < 0 then
-        j += 1
-      end
-      if cmp(temp, t[j]) < 0 then
-        t[i] = t[j]
-        i = j
-        j += i
-      else
-        j = upper + 1
-      end
-    end
-    t[i] = temp
-  end
-end
-
--- sprite stuffs
-make_pool = function()
-  local store = {}
-  local id_counter = 0
-  local each = function(f)
-    for v in all(store) do
-      if v.alive then
-        f(v)
-      end
-    end
-  end
-  return {
-    each = each,
-    each_in_order = function(key, default, f)
-      local sorted = {}
-      each(function(v)
-        add(sorted,v)
-      end)
-      heapsort(sorted,function(a,b)
-        a = a[key] or default
-        b = b[key] or default
-        if a < b then
-          return -1
-        elseif a == b then
-          return 0
-        else
-          return 1
-        end
-      end)
-      for _,val in pairs(sorted) do
-        f(val)
-      end
-    end,
-    store = store,
-    make = function(obj)
-      obj = obj or {}
-      obj.alive = true
-      local id = false
-
-      for k,v in pairs(store) do
-        if not v.alive then
-          id = k
-        end
-      end
-
-      if not id then
-        id_counter+= 1
-        id = id_counter
-      end
-      store[id] = obj
-      obj.kill = function()
-        obj.alive = false
-      end
-    end
-  }
 end
 
 sprites = {
@@ -438,6 +381,8 @@ tweens = {
   },
   pool = make_pool(),
   make = function(sprite,property,final,time,easing,options)
+    -- printh(sprite.sprite_id)
+    -- printh(property)
     local initial = sprite[property]
     local diff = final - initial
     local count = 0
@@ -452,10 +397,16 @@ tweens = {
     tween.advance = function()
       if not sprite.alive then
         tween.kill()
+      end
+      if not tween.alive then
         return
       end
       count+= 1
       local out
+      -- printh(sprite.sprite_id)
+      -- printh(property)
+      -- printh(final)
+      -- printh(time)
       if tween.ease_in_and_out then
         out = initial + diff*(1-(easing(1-easing(count/time))))
       elseif tween.ease_out then
@@ -468,11 +419,15 @@ tweens = {
       end
       sprite[property] = out
       if count >= time then
-        tween.kill()
-        if tween.on_complete then
-          tween.next(tween.on_complete)
-        end
-        tween.promise.resolve()
+        delays.make(0,function()
+          if tween.alive then
+            tween.kill()
+            if tween.on_complete then
+              tween.next(tween.on_complete)
+            end
+            tween.promise.resolve(sprite)
+          end
+        end)
       end
     end
     tweens.pool.make(tween)
@@ -489,19 +444,24 @@ tweens = {
 arrow = sprites.make(42,{x = 20,y = 20})
 
 function _init()
- sprites.make(10,{x=10,y=10,z=5,scale=16})
+ --sprites.make(10,{x=10,y=10,z=5,scale=16})
 end
 
 hello = false
 
+local current_tween
+
 function _update()
- tweens.advance()
+ delays.process(function()
+  tweens.advance()
+ end)
+
  --arrow.x += 1
  if btn(0) then
   arrow.kill()
   arrow = sprites.make(10,{x = 20,y = 20})
   arrow.centered = true
-  local duration = 100
+  local duration = 1
   local easing = function(k)--tweens.easings.cubic
    --2\cdot \log \left(x+0.5\right)+0.6
    return sqrt(k)
@@ -511,23 +471,27 @@ function _update()
     arrow.before_draw = function()
      pal(8,13)
     end
-    tweens.make(arrow,'y',100,duration,easing).next(function()
+    current_tween = tweens.make(arrow,'y',100,duration,easing)
+    current_tween.next(function()
      arrow.before_draw = function()
       pal(8,11)
      end
      arrow.z = -10
-     return tweens.make(arrow,'x',100,duration,easing)
+     current_tween = tweens.make(arrow,'x',100,duration,easing)
+     return current_tween
     end).next(function()
      arrow.before_draw = function()
       pal(8,12)
      end
      arrow.z = 10
-     return tweens.make(arrow,'y',20,duration,easing)
+     current_tween = tweens.make(arrow,'y',20,duration,easing)
+     return current_tween
     end).next(function()
      arrow.before_draw = function()
       pal(8,14)
      end
-     return tweens.make(arrow,'x',20,duration,easing)
+     current_tween = tweens.make(arrow,'x',20,duration,easing)
+     return current_tween
     end).next(loop)
   end
   loop()
@@ -544,6 +508,8 @@ function _update()
 
  elseif btn(1) then
   arrow.y+= 1
+ elseif btn(2) then
+  current_tween.kill()
  end
 end
 
@@ -557,16 +523,27 @@ end
 
 function _draw()
  cls()
- local total = 0
- local alive = 0
+ local tweens_alive = 0
  tweens.pool.each(function(t)
-  alive+=1
+  tweens_alive+=1
  end)
- for k,v in pairs(tweens.pool.store) do
-  total+=1
- end
- print(total)
- print(alive)
+ local sprites_alive = 0
+ sprites.pool.each(function(s)
+  sprites_alive+=1
+ end)
+ local delays_alive = 0
+ delays.pool.each(function(d)
+  delays_alive+=1
+ end)
+ print('tweens')
+ print(#tweens.pool.store)
+ print(tweens_alive)
+ print('sprites')
+ print(#sprites.pool.store)
+ print(sprites_alive)
+ print('delays')
+ print(#delays.pool.store)
+ print(delays_alive)
  if hello then
   print("hello")
  end

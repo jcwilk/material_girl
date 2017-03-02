@@ -9,6 +9,119 @@ id_f = function(val)
   return val
 end
 
+-- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
+function heapsort(t, cmp)
+  local n = #t
+  if n <= 1 then
+    return
+  end
+  local i, j, temp
+  local lower = flr(n / 2) + 1
+  local upper = n
+  cmp = cmp or function(a,b)
+    if a < b then
+      return -1
+    elseif a == b then
+      return 0
+    else
+      return 1
+    end
+  end
+  while 1 do
+    if lower > 1 then
+      lower -= 1
+      temp = t[lower]
+    else
+      temp = t[upper]
+      t[upper] = t[1]
+      upper -= 1
+      if upper == 1 then
+        t[1] = temp
+        return
+      end
+    end
+
+    i = lower
+    j = lower * 2
+    while j <= upper do
+      if j < upper and cmp(t[j], t[j+1]) < 0 then
+        j += 1
+      end
+      if cmp(temp, t[j]) < 0 then
+        t[i] = t[j]
+        i = j
+        j += i
+      else
+        j = upper + 1
+      end
+    end
+    t[i] = temp
+  end
+end
+
+-- sprite stuffs
+make_pool = function()
+  local store = {}
+  local id_counter = 0
+  local each = function(f,wrap_around)
+    local all_items = all(store)
+    if wrap_around then
+      wrap_around()
+    end
+    for v in all_items do
+      if v.alive then
+        f(v)
+      end
+    end
+  end
+  return {
+    each = each,
+    each_in_order = function(key, default, f)
+      local sorted = {}
+      each(function(v)
+        add(sorted,v)
+      end)
+      heapsort(sorted,function(a,b)
+        a = a[key] or default
+        b = b[key] or default
+        if a < b then
+          return -1
+        elseif a == b then
+          return 0
+        else
+          return 1
+        end
+      end)
+      for _,val in pairs(sorted) do
+        f(val)
+      end
+    end,
+    store = store,
+    make = function(obj)
+      obj = obj or {}
+      obj.alive = true
+      local id = false
+
+      for k,v in pairs(store) do
+        if not v.alive then
+          id = k
+        end
+      end
+
+      if not id then
+        id_counter+= 1
+        id = id_counter
+      end
+      store[id] = obj
+      obj.kill = function()
+        obj.alive = false
+      end
+      return obj
+    end
+  }
+end
+
+
 cam = {
   x = 0,
   y = 0,
@@ -74,24 +187,26 @@ promises = {
   end
 }
 
+local delays
 delays = {
-  pool={},
-  process=function()
-    for p in all(delays.pool) do
-      p()
-    end
+  pool=make_pool(),
+  process=function(wrap_around)
+    delays.pool.each(function(o)
+      o.process()
+    end,wrap_around)
   end,
-  make=function(count,promise_f)
+  make=function(count,promise_f,promise_val)
     local promise = promises.make(promise_f)
-    local process = function()
+    local obj = delays.pool.make()
+    obj.process = function()
       if count <= 0 then
         del(delays.pool,process)
         promise.resolve(promise_val)
+        obj.kill()
       else
         count-=1
       end
     end
-    add(delays.pool,process)
     return promise
   end
 }

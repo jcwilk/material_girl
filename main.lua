@@ -133,8 +133,9 @@ function _init()
 end
 
 function _update()
-  tweens.advance()
-
+  delays.process(function()
+    tweens.advance()
+  end)
   return fighting.update() or store.update() or update_walkabout()
 end
 
