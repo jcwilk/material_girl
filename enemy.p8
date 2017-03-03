@@ -230,7 +230,6 @@ make_enemy = function(player,attributes)
     closeness = 0.2,
     attraction = 0.5,
     patience = 1.0,
-    base_x = 128+24+96,
     base_y = 26,
     advance_action = function()
       local todo

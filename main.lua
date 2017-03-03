@@ -92,7 +92,7 @@ function update_walkabout()
   local store_index = entered_door(player.x,y)
   if store_index then
     moved=false
-    store.start(store_index)
+    fighting.start_store(store_index)
     return true
   elseif player.y != y and not sprite_collided(player.x,y) then
     moved=true
@@ -123,7 +123,6 @@ function _init()
   anim_t=0
   inventory = make_inventory()
   fighting = make_fight(inventory)
-  store = make_store(inventory)
   --fighting.start() --uncomment to start in a fight
 
   --music(o,0,15)
@@ -136,7 +135,7 @@ function _update()
   delays.process(function()
     tweens.advance()
   end)
-  return fighting.update() or store.update() or update_walkabout()
+  return fighting.update() or update_walkabout()
 end
 
 -----
@@ -163,7 +162,7 @@ end
 function _draw()
   cam.apply()
 
-  if fighting.draw() or store.draw() then
+  if fighting.draw() then
     return
   end
 

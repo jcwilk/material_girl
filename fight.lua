@@ -17,7 +17,7 @@ function make_fight()
   local enemy_data
   local text_needs_clearing
   local intro_slide
-  local intro_textbox
+  local intro_textbox, intro_store
   local game_over
   local clouds = make_pool()
   local sun
@@ -25,19 +25,6 @@ function make_fight()
   ----
   -- fighting animation update logic
   ----
-  -- designed to be called each update loop
-  -- start_fanim() kicks off the animation state and initializes
-  -- must set fanim=false on completion to indicate no longer in animation state
-  ----
-  local function start_fanim()
-    if fanim then
-      return false
-    else
-      fanim=true
-      return true
-    end
-  end
-
   local function reset_combat_cursor()
     cursor(128+24+2,73)
   end
@@ -63,13 +50,14 @@ function make_fight()
     clouds.each(function(c)
       c.kill()
     end)
-    sun.kill()
+    if sun then
+      sun.kill()
+    end
     enemy.kill()
     fighter.kill()
     cam.x = 0
     cam.y = 0
     sprites.make(player.sprite_id,player).flip = true
-    player.x-=4
     obj.active = false
   end
 
@@ -93,8 +81,7 @@ function make_fight()
     enemy_data.current_action.start()
     enemy.sprite_id=5
 
-    fanim = function()
-    end
+    fanim = noop_f
 
     tweens.make(enemy,'x',fighter.x+24,10,'quadratic').on_complete = function()
       enemy.sprite_id = 6
@@ -161,67 +148,62 @@ function make_fight()
     tweens.make(cloud,'x',0-cloud.scale_x*4,(cloud.x+20)*10/(0.5+3*prox*prox)).on_complete = cloud.kill
   end
 
-  function fintro()
-    fighter = sprites.make(0,{x=player.x+4,y=player.y+4,z=100,walking_scale=2}) -- +4 because centered
-    cam.player_x = fighter.x
-    player.kill()
-
-    fighter.before_draw = function()
-      inventory.remap_girl_colors()
-    end
-    fighter.centered = true
-
-    for i=1,4 do make_cloud() end
-
-    sun = sprites.make(51,{x=116,y=5,z=1,relative_to_cam=true,centered=true,rounded_position=true})
-
-    local after_fighter = nil
-
-    fanim=function()
-    end
-
-    tweens.make(intro_textbox,'y',48,60,'quadratic').ease_in_and_out=true
-
-    fighter.walking_frames = {0,1,0,2}
-    fighter.walking = true
-
-    tweens.make(cam,'x',24,20).rounding=true
-    tweens.make(fighter,'x',128+4,5).on_complete = function()
-      tweens.make(fighter,'y',fighter.y+8,10)
-      tweens.make(fighter,'x',128+13,15).on_complete = function()
-        tweens.make(fighter,'y',coastline_y,50).on_complete = function()
-          tweens.make(cam,'x',128+24,60).rounding=true
-          tweens.make(fighter,'x',ofpx-24,20).on_complete = function()
-            tweens.make(fighter,'x',ofpx,20)
-            tweens.make(fighter,'y',ofpy,40,'quadratic')
-            tweens.make(fighter,'scale',4,40,'quadratic').on_complete = function()
-              fighter.walking = false
-              after_fighter()
-            end
-          end
-        end
-      end
-    end
-
-    after_fighter = function()
+  local function fintro()
+    fanim=noop_f
+    tweens.make(fighter,'x',ofpx,20)
+    tweens.make(fighter,'y',ofpy,40,'quadratic')
+    tweens.make(fighter,'scale',4,40,'quadratic').next(function()
+      fighter.walking = false
       fighter.walking_scale=6
       enemy.hide = false
       enemy.walking=true
       --tweens.make(enemy,'scale',4,20,'quadratic').ease_out = true
-      local e_slide_in = tweens.make(enemy,'x',enemy_data.base_x,40,'quadratic')
-      e_slide_in.ease_out = true
-      e_slide_in.on_complete = function()
-        --enemy_data.intro_speech()
-        fanim = false
-        intro_slide = false
-        enemy.walking=false
-      end
-    end
+      return tweens.make(enemy,'x',enemy_data.base_x,40,'quadratic',{
+        ease_out=true
+      })
+    end).next(function()
+      --enemy_data.intro_speech()
+      intro_slide = false
+      enemy.walking=false
+      fanim=false
+    end)
+  end
+
+  function beach_intro()
+    for i=1,4 do make_cloud() end
+
+    sun = sprites.make(51,{x=116,y=5,z=1,relative_to_cam=true,centered=true,rounded_position=true})
+
+    fanim=noop_f
+
+    tweens.make(intro_textbox,'y',48,60,'quadratic').ease_in_and_out=true
+
+    tweens.make(cam,'x',24,20).rounding=true
+    tweens.make(fighter,'x',128+4,5).next(function()
+      tweens.make(fighter,'y',fighter.y+8,10)
+      return tweens.make(fighter,'x',128+13,15)
+    end).next(function()
+      return tweens.make(fighter,'y',coastline_y,50)
+    end).next(function()
+      tweens.make(cam,'x',128+24,60).rounding=true
+      return tweens.make(fighter,'x',ofpx-24,20)
+    end).next(fintro)
+  end
+
+  function store_intro()
+    fanim=noop_f
+
+    local text_slide = tweens.make(intro_textbox,'y',48,60,'quadratic')
+    text_slide.ease_in_and_out=true
+
+    local store_slide = tweens.make(intro_store,'y',0,60,'quadratic')
+    store_slide.ease_in_and_out=true
+
+    store_slide.next(fintro)
   end
 
   local function flose()
-    fanim = function()
-    end
+    fanim = noop_f
 
     fighter.sprite_id = 48
 
@@ -300,8 +282,7 @@ function make_fight()
   local function fmove()
     enemy_data.current_action.start()
 
-    fanim = function()
-    end
+    fanim = noop_f
 
     jump_to_closeness(function()
         enemy_data.current_action.middle()
@@ -312,8 +293,7 @@ function make_fight()
   local function fattack()
     enemy_data.current_action.start()
 
-    fanim = function()
-    end
+    fanim = noop_f
 
     fighter.walking = true
 
@@ -322,8 +302,6 @@ function make_fight()
     --approach.ease_in_and_out = true
     approach.on_complete = function()
       fighter.walking = false
-      fanim = function()
-      end
 
       enemy_data.current_action.middle()
       kiss=flr(rnd()*5+11)
@@ -360,8 +338,7 @@ function make_fight()
     approach.on_complete = function()
       enemy_data.current_action.middle()
 
-      fanim = function()
-      end
+      fanim = noop_f
       enemy.flip=true
       enemy.x+=8
       if enemy_data.hp <= 0 then
@@ -386,8 +363,7 @@ function make_fight()
     local spinx = fighter.x
     fighter.sprite_id = 1
 
-    fanim = function()
-    end
+    fanim = noop_f
 
     local rising = tweens.make(fighter,'y',ofpy-10,5)
     rising.ease_out = true
@@ -472,29 +448,32 @@ function make_fight()
   local function frun()
     enemy_data.current_action.start()
     fighter.walking = true
-    fanim = function()
-    end
+    fanim = noop_f
     enemy.walking=true
-    enemy_approach = tweens.make(enemy,'x',enemy.x-10,6,'quadratic')
-    enemy_approach.ease_in_and_out = true
-    enemy_approach.on_complete = function()
+    tweens.make(enemy,'x',enemy.x-10,6,'quadratic',{
+      ease_in_and_out=true
+    }).next(function()
       enemy.walking=false
       enemy_data.current_action.middle()
-      enemy.flip = true
-      tweens.make(fighter,'y',fighter.y-24,60)
-      tweens.make(fighter,'x',-16,60,'quadratic').on_complete = function()
-        fighter.walking=false
-        exit_battle()
+      fighter.flip = true
+      fighter.walking=true
+      if sun then
+        tweens.make(fighter,'y',fighter.y-24,40)
+        tweens.make(fighter,'scale',1,40,'quadratic').ease_out = true
       end
-      tweens.make(fighter,'scale',1,60,'quadratic')
-    end
+      return tweens.make(fighter,'x',-16,40,'quadratic')
+    end).next(function()
+      return delays.make(60)
+    end).next(function()
+      fighter.walking=false
+      exit_battle()
+    end)
   end
 
   local function fflee()
     enemy_data.current_action.start()
     enemy.walking = true
-    fanim = function()
-    end
+    fanim = noop_f
     enemy.flip=true
     enemy_data.current_action.middle()
     tweens.make(enemy,'x',cam.x+140,60,'quadratic').on_complete = function()
@@ -536,11 +515,11 @@ function make_fight()
       return false
     end
 
-    if rnd() < 0.005 then
+    if sun and rnd() < 0.005 then
       make_cloud(128+32)
     end
 
-    if rnd() < 0.01 then
+    if sun and rnd() < 0.01 then
       sun.scale_x = 1+rnd()*0.2
       sun.scale_y = 1+rnd()*0.2
     end
@@ -657,6 +636,9 @@ function make_fight()
         palt(0,false)
         map(0,0,0,0,16,8) --top half of town
         map(19,6,cam.x,intro_textbox.y,16,10) --textbox
+        if intro_store then
+          map(35,0,cam.x,intro_store.y,16,6) --textbox
+        end
         palt()
 
         sprites.draw(20,nil)
@@ -667,6 +649,9 @@ function make_fight()
         sprites.draw(nil,10)
         palt(0,false)
         map(19,2,cam.x,16,16,7)
+        if intro_store then
+          map(35,0,cam.x,intro_store.y,16,6) --textbox
+        end
         palt()
         draw_fui()
         --draw_enemy_stats()
@@ -679,29 +664,90 @@ function make_fight()
     end
   end
 
+  local function start_common()
+    cfpx=ofpx
+
+    player.kill()
+
+    fighter.before_draw = function()
+      inventory.remap_girl_colors()
+    end
+    fighter.centered = true
+    fighter.walking_frames = {0,1,0,2}
+    fighter.walking = true
+
+    obj.active = true
+    intro_slide = true
+    intro_textbox = {
+      alive=true,
+      y=128
+    }
+  end
+
   --object initialization and return
   obj = {
     update = update_fight,
     draw = draw_fight,
     start = function()
-      --queue_text(cls)
-
-      intro_slide = true
-      intro_textbox = {
-        alive=true,
-        y=128
-      }
-
       ofpx=128+24+26
-      cfpx=ofpx
       ofpy=26
       coastline_y=ofpy-8
 
-      enemy_data = make_enemy(fighter,{x=256+128,y=ofpy,z=50,hide=true,scale=4,walking_scale=6})
+      enemy_data = make_enemy(fighter,{
+        x=256+128,
+        y=ofpy,
+        z=50,
+        hide=true,
+        scale=4,
+        walking_scale=6
+      })
       enemy = enemy_data.sprite
+      enemy_data.base_x = 128+24+96
 
+      fighter = sprites.make(0,{
+        x=player.x+4,
+        y=player.y+4,
+        z=100,
+        walking_scale=2
+      }) -- +4 because centered
+
+      player.x-=4
+      start_common()
+
+      beach_intro()
+    end,
+    start_store = function(store_index)
       obj.active = true
-      fintro()
+      ofpx=26
+      ofpy=26
+
+      intro_store = {
+        alive=true,
+        y=-48
+      }
+      enemy_data = make_enemy(fighter,{
+        x=128+16,
+        y=ofpy,
+        z=50,
+        hide=true,
+        scale=4,
+        walking_scale=6
+      })
+      enemy = enemy_data.sprite
+      enemy_data.base_x = 96
+
+      fighter = sprites.make(0,{
+        x=-16,
+        z=100,
+        y=ofpy,
+        walking_scale=2,
+        scale=4
+      })
+      player.y=(player.y-64)*0.7+64 --move away from store
+
+      start_common()
+
+      store_intro()
     end,
     active = false
   }
