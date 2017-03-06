@@ -22,12 +22,53 @@ function check_px(x,y,bit)
   return check_tile(flr(x/8),flr(y/8),bit)
 end
 
+local door_data
+local doors
+
+function calc_doors()
+  if door_data then
+    return door_data
+  end
+  local store_id = inventory.current_store()
+  door_data = {
+    {
+      x=4,
+      y=4,
+      open=store_id==1
+    },
+    {
+      x=12,
+      y=5,
+      open=store_id==3
+    },
+    {
+      x=3,
+      y=11,
+      open=store_id==2
+    },
+    {
+      x=11,
+      y=10,
+      open=store_id==4
+    }
+  }
+  return door_data
+end
+
 --check tile for bit
 function check_tile (x,y,bit)
   if x < 0 or x >= 16 then
-    return true end
+    return true
+  end
   if y < 0 or y >= 16 then
-    return true end
+    return true
+  end
+
+  for door in all(calc_doors()) do
+    if door.x == x and door.y == y and not door.open then
+      return true
+    end
+  end
 
   val = mget(x,y)
   return fget(val,bit)
@@ -68,6 +109,14 @@ function exit_door_y(x,y)
   end
 end
 
+function end_walkabout()
+  door_data = nil
+  doors.each(function(d)
+    d.kill()
+  end)
+  doors = nil
+end
+
 function update_walkabout()
   local x = player.x
   local y = player.y
@@ -92,6 +141,8 @@ function update_walkabout()
   local store_index = entered_door(player.x,y)
   if store_index then
     moved=false
+    end_walkabout()
+    fighting=make_fight(inventory)
     fighting.start_store(store_index)
     return true
   elseif player.y != y and not sprite_collided(player.x,y) then
@@ -102,6 +153,7 @@ function update_walkabout()
   if moved then
     player.walking=true
     if player.x > 119 then
+      end_walkabout()
       fighting=make_fight(inventory)
       fighting.start()
       return true
@@ -166,6 +218,26 @@ function _draw()
     return
   end
 
+  if not doors then
+    doors = make_pool()
+    for door in all(calc_doors()) do
+      if door.y > 8 then
+        if door.open then
+          doors.make(sprites.make(28,{x=door.x*8,y=door.y*8}))
+          doors.make(sprites.make(29,{x=door.x*8,y=door.y*8-8}))
+        end
+      else
+        local sprite_id
+        if door.open then
+          sprite_id = 37
+        else
+          sprite_id = 46
+        end
+        doors.make(sprites.make(sprite_id,{x=door.x*8,y=door.y*8}))
+      end
+    end
+  end
+
   --walkabout
   palt(0,false)
   map(0,0,0,0,128,128,1)
@@ -174,5 +246,10 @@ function _draw()
   palt(0,false)
   map(0,0,0,0,128,128,4)
   palt()
+  for door in all(door_data) do
+    if door.open then
+      print("sale",door.x*8-20+rnd(30),door.y*8-20+rnd(30),flr(rnd(16)))
+    end
+  end
 end
 -- END LIB

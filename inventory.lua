@@ -7,6 +7,7 @@ function make_inventory()
   local shoes_color_map = {4,5,7,8}
   local equipped_items = {1,1,1,1}
   local owned_hearts = {}
+  local current_store_index = 1
   local obj = {
     store_sprite_map = {41,39,40,38},
     dress_light_color = 11,
@@ -17,6 +18,15 @@ function make_inventory()
     hearts_count = 0,
     equipped_items = equipped_items
   }
+
+  obj.current_store = function()
+    -- lipstick, ring, shoes, dress
+    return ({2,3,4,1})[current_store_index]
+  end
+
+  obj.increment_store = function()
+    current_store_index+=1
+  end
 
   obj.add_heart = function()
     local heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})
