@@ -34,7 +34,7 @@ make_enemy = function(player,attributes)
         print("your beauty defies words")
         print("my life begins today")
       end,
-      med=function()
+      mid=function()
         color(12)
         print("you're rather fetching")
       end,
@@ -48,25 +48,29 @@ make_enemy = function(player,attributes)
 
   local raise_multipliers = {
     closeness=function()
-      return 1.5
+      return .2
     end,
     attraction=function()
-      return (4+inventory.hearts_count)/3
+      return (4+inventory.hearts_count)/15 --TODO
     end
   }
 
   local lower_multipliers = {
     closeness=function()
-      return 1.5
+      return .3
     end,
     attraction=function()
-     return 0.3
+      if inventory.current_store_index == 1 then
+        return 0
+      else
+        return .2
+      end
     end
   }
 
   local function lower_stat(stat, multiplier)
     multiplier = multiplier or lower_multipliers[stat]()
-    obj[stat]*= 1 - 0.2*(0.5+multiplier/2)
+    obj[stat]-= obj[stat]*multiplier
     if obj[stat] < 0.33 then
       queue_text(stat_speech[stat].low)
     elseif obj[stat] < 0.66 then
@@ -78,32 +82,35 @@ make_enemy = function(player,attributes)
 
   local function raise_stat(stat, multiplier)
     multiplier = multiplier or raise_multipliers[stat]()
-    obj[stat]+= (1-obj[stat])*0.1*(1+multiplier)
+    obj[stat]+= (1-obj[stat])*multiplier
   end
 
   local function dazzle_check()
-    return obj.closeness > 0.5
+    return obj.closeness < 0.6
   end
 
   local function withdraw_check()
-    return obj.closeness > 0.3
+    return obj.closeness > 0.2
   end
 
   local function advance_check()
-    return obj.closeness < 0.7
+    return obj.closeness < 0.6
   end
 
   local function attack_check()
-    return inventory.hearts_count/obj.attraction < rnd()*10
+    return true --inventory.hearts_count/obj.attraction < rnd()*10
   end
 
   local function counterattack_check()
-    -- TODO: inventory.current_store_index > 1 and ...
-    return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25
+    obj.patience-= 1-obj.attraction
+    if obj.patience < 0 then
+      obj.patience+= 1
+      return true
+    end
   end
 
   local function flee_check()
-    return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25
+    return false --obj.attraction*obj.attraction < rnd()*0.15
   end
 
   local function failed_withdraw_speech()
@@ -167,12 +174,12 @@ make_enemy = function(player,attributes)
           color(14)
           print "so hurtful.."
         end)
-        inventory.remove_heart()
+        --inventory.remove_heart()
         if inventory.hearts_count <= 0 then
           obj.current_action.lose = true
           deferred_action = lose
         else
-          lower_stat('closeness',1)
+          lower_stat('closeness')
         end
       end
     }
@@ -206,11 +213,10 @@ make_enemy = function(player,attributes)
 
   obj =  {
     sprite = sprite,
-    hp = 5,
-    def = 1,
-
+    hp = 1,
+    patience = 1,
     closeness = 0.2,
-    attraction = 0.5,
+    attraction = .6,
     base_y = 26,
     advance_action = function()
       local todo
@@ -270,6 +276,24 @@ make_enemy = function(player,attributes)
 
       if dazzle_check() then
         obj.current_action = {
+          name = 'magic',
+          start = function()
+            queue_text(function()
+              color(14)
+              print("behold the power...")
+            end)
+          end,
+          middle = function()
+            raise_stat('attraction')
+            queue_text(function()
+              color(14)
+              print("of my loveliness!")
+            end)
+          end
+        }
+        attempt_counterattack()
+      else
+        obj.current_action = {
           name = 'move',
           start = function()
           end,
@@ -292,24 +316,6 @@ make_enemy = function(player,attributes)
           }
         end
         attempt_counterattack()
-      else
-        obj.current_action = {
-          name = 'magic',
-          start = function()
-            queue_text(function()
-              color(14)
-              print("behold the power...")
-            end)
-          end,
-          middle = function()
-            raise_stat('attraction')
-            queue_text(function()
-              color(14)
-              print("of my loveliness!")
-            end)
-          end
-        }
-        attempt_counterattack()
       end
     end,
     advance = function()
@@ -317,13 +323,13 @@ make_enemy = function(player,attributes)
 
       if advance_check() then
         raise_stat('closeness')
-        lower_stat('attraction')
 
         obj.current_action = {
           name="move",
           start=function()
           end,
           middle=function()
+            lower_stat('attraction')
           end
         }
       elseif attack_check() then
@@ -365,11 +371,14 @@ make_enemy = function(player,attributes)
             end)
           end
         }
-        attempt_counterattack()
       end
+      attempt_counterattack()
     end,
     intro_speech = intro_speech
   }
+  if inventory.current_store_index > 1 then
+    obj.attraction = 0.3
+  end
   return obj
 end
 -- end lib

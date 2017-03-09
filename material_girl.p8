@@ -514,12 +514,12 @@ function make_fight()
  -- fighting animation update logic
  ----
  local function reset_combat_cursor()
-  cursor(128+24+2,73)
+  cursor(cam.x+2,73)
  end
 
  local function clear_text()
   palt(0,false)
-  map(19,9,128+24,72,16,7)
+  map(19,9,cam.x,72,16,7)
   palt()
   reset_combat_cursor()
  end
@@ -618,7 +618,6 @@ function make_fight()
   end
  end
 
-
  function make_cloud(x)
   local prox = rnd()
   local cloud = sprites.make(flr(64+rnd()*3),{
@@ -681,10 +680,10 @@ function make_fight()
  function store_intro()
   fanim=noop_f
 
-  local text_slide = tweens.make(intro_textbox,'y',48,60,'quadratic')
+  local text_slide = tweens.make(intro_textbox,'y',48,30,'quadratic')
   text_slide.ease_in_and_out=true
 
-  local store_slide = tweens.make(intro_store,'y',0,60,'quadratic')
+  local store_slide = tweens.make(intro_store,'y',0,30,'quadratic')
   store_slide.ease_in_and_out=true
 
   store_slide.next(fintro)
@@ -763,6 +762,7 @@ function make_fight()
     local jump = tweens.make(fighter,'y',fighter.y-5,14,'cubic')
     jump.ease_out = true
     jump.on_complete = exit_battle
+    inventory.increment_store()
    end
   end
  end
@@ -1098,6 +1098,7 @@ function make_fight()
  local function draw_enemy_stats()
   draw_stat(enemy_data.closeness,105,58,8)
   draw_stat(enemy_data.attraction,105,62,9)
+  draw_stat(enemy_data.patience,105,66,10)
  end
 
  local function draw_fight()
@@ -1132,10 +1133,10 @@ function make_fight()
    else
     --clear above text
     --rectfill(0,0,127,69,0)
-    map(16+3,0,cam.x,0,16,2)
+    map(16+3,0,cam.x,0,16,2) --sky
     sprites.draw(nil,10)
     palt(0,false)
-    map(19,2,cam.x,16,16,7)
+    map(19,2,cam.x,16,16,7) --beach
     if intro_store then
      map(35,0,cam.x,intro_store.y,16,6) --textbox
     end
@@ -1276,7 +1277,7 @@ make_enemy = function(player,attributes)
     print("your beauty defies words")
     print("my life begins today")
    end,
-   med=function()
+   mid=function()
     color(12)
     print("you're rather fetching")
    end,
@@ -1290,25 +1291,29 @@ make_enemy = function(player,attributes)
 
  local raise_multipliers = {
   closeness=function()
-   return 1.5
+   return .2
   end,
   attraction=function()
-   return (4+inventory.hearts_count)/3
+   return (4+inventory.hearts_count)/15 --TODO
   end
  }
 
  local lower_multipliers = {
   closeness=function()
-   return 1.5
+   return .3
   end,
   attraction=function()
-  return 0.3
+   if inventory.current_store_index == 1 then
+    return 0
+   else
+    return .2
+   end
   end
  }
 
  local function lower_stat(stat, multiplier)
   multiplier = multiplier or lower_multipliers[stat]()
-  obj[stat]*= 1 - 0.2*(0.5+multiplier/2)
+  obj[stat]-= obj[stat]*multiplier
   if obj[stat] < 0.33 then
    queue_text(stat_speech[stat].low)
   elseif obj[stat] < 0.66 then
@@ -1320,32 +1325,35 @@ make_enemy = function(player,attributes)
 
  local function raise_stat(stat, multiplier)
   multiplier = multiplier or raise_multipliers[stat]()
-  obj[stat]+= (1-obj[stat])*0.1*(1+multiplier)
+  obj[stat]+= (1-obj[stat])*multiplier
  end
 
  local function dazzle_check()
-  return obj.closeness > 0.5
+  return obj.closeness < 0.6
  end
 
  local function withdraw_check()
-  return obj.closeness > 0.3
+  return obj.closeness > 0.2
  end
 
  local function advance_check()
-  return obj.closeness < 0.7
+  return obj.closeness < 0.6
  end
 
  local function attack_check()
-  return inventory.hearts_count/obj.attraction < rnd()*10
+  return true --inventory.hearts_count/obj.attraction < rnd()*10
  end
 
  local function counterattack_check()
-  -- TODO: inventory.current_store_index > 1 and ...
-  return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25
+  obj.patience-= 1-obj.attraction
+  if obj.patience < 0 then
+   obj.patience+= 1
+   return true
+  end
  end
 
  local function flee_check()
-  return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25
+  return false --obj.attraction*obj.attraction < rnd()*0.15
  end
 
  local function failed_withdraw_speech()
@@ -1409,12 +1417,12 @@ make_enemy = function(player,attributes)
      color(14)
      print "so hurtful.."
     end)
-    inventory.remove_heart()
+    --inventory.remove_heart()
     if inventory.hearts_count <= 0 then
      obj.current_action.lose = true
      deferred_action = lose
     else
-     lower_stat('closeness',1)
+     lower_stat('closeness')
     end
    end
   }
@@ -1448,11 +1456,10 @@ make_enemy = function(player,attributes)
 
  obj =  {
   sprite = sprite,
-  hp = 5,
-  def = 1,
-
+  hp = 1,
+  patience = 1,
   closeness = 0.2,
-  attraction = 0.5,
+  attraction = .6,
   base_y = 26,
   advance_action = function()
    local todo
@@ -1512,6 +1519,24 @@ make_enemy = function(player,attributes)
 
    if dazzle_check() then
     obj.current_action = {
+     name = 'magic',
+     start = function()
+      queue_text(function()
+       color(14)
+       print("behold the power...")
+      end)
+     end,
+     middle = function()
+      raise_stat('attraction')
+      queue_text(function()
+       color(14)
+       print("of my loveliness!")
+      end)
+     end
+    }
+    attempt_counterattack()
+   else
+    obj.current_action = {
      name = 'move',
      start = function()
      end,
@@ -1534,24 +1559,6 @@ make_enemy = function(player,attributes)
      }
     end
     attempt_counterattack()
-   else
-    obj.current_action = {
-     name = 'magic',
-     start = function()
-      queue_text(function()
-       color(14)
-       print("behold the power...")
-      end)
-     end,
-     middle = function()
-      raise_stat('attraction')
-      queue_text(function()
-       color(14)
-       print("of my loveliness!")
-      end)
-     end
-    }
-    attempt_counterattack()
    end
   end,
   advance = function()
@@ -1559,13 +1566,13 @@ make_enemy = function(player,attributes)
 
    if advance_check() then
     raise_stat('closeness')
-    lower_stat('attraction')
 
     obj.current_action = {
      name="move",
      start=function()
      end,
      middle=function()
+      lower_stat('attraction')
      end
     }
    elseif attack_check() then
@@ -1607,11 +1614,14 @@ make_enemy = function(player,attributes)
       end)
      end
     }
-    attempt_counterattack()
    end
+   attempt_counterattack()
   end,
   intro_speech = intro_speech
  }
+ if inventory.current_store_index > 1 then
+  obj.attraction = 0.3
+ end
  return obj
 end
 -- end ext
@@ -1670,6 +1680,14 @@ function calc_doors()
   }
  }
  return door_data
+end
+
+function open_door()
+ for door in all(calc_doors()) do
+  if door.open then
+   return door
+  end
+ end
 end
 
 --check tile for bit
@@ -1732,6 +1750,7 @@ function end_walkabout()
   d.kill()
  end)
  doors = nil
+ sale.counter=0
 end
 
 function update_walkabout()
@@ -1739,6 +1758,11 @@ function update_walkabout()
  local y = player.y
  local moved = false
  local nflp
+
+
+ place_sale()
+
+
  if btn(0) then
   nflp=true
   x=x-spd
@@ -1781,6 +1805,28 @@ function update_walkabout()
  return true
 end
 
+sale = {
+ alive=true,
+ counter=1,
+ text="sale"
+}
+
+function place_sale()
+ sale.counter-=1
+ sale.color = ({7,8,10,11,12,14})[flr(sale.counter/4)%6+1] --[flr(rnd(6))+1]
+ if sale.counter <= 0 then
+  local door = open_door()
+  if not door then
+   return
+  end
+  sale.x = door.x*8-18+rnd(30)
+  sale.y = door.y*8-10+rnd(20)
+  --sale.color = ({7,8,10,11,12,14})[flr(rnd(6))+1]
+  sale.counter = flr(15+rnd(5))
+  sale.text = ({"sale","omg","wow","oooh"})[flr(rnd(4))+1]
+ end
+end
+
 function _init()
  player = sprites.make(0,{x=56,y=56})
  player.walking_frames = {0,1,0,2}
@@ -1792,6 +1838,9 @@ function _init()
  anim_t=0
  inventory = make_inventory()
  fighting = make_fight(inventory)
+
+ place_sale()
+
  --fighting.start() --uncomment to start in a fight
 
  --music(o,0,15)
@@ -1863,10 +1912,8 @@ function _draw()
  palt(0,false)
  map(0,0,0,0,128,128,4)
  palt()
- for door in all(door_data) do
-  if door.open then
-   print("sale",door.x*8-20+rnd(30),door.y*8-20+rnd(30),flr(rnd(16)))
-  end
+ if open_door() then
+  print(sale.text,sale.x,sale.y,sale.color)
  end
 end
 -- end ext

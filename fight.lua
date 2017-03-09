@@ -26,12 +26,12 @@ function make_fight()
   -- fighting animation update logic
   ----
   local function reset_combat_cursor()
-    cursor(128+24+2,73)
+    cursor(cam.x+2,73)
   end
 
   local function clear_text()
     palt(0,false)
-    map(19,9,128+24,72,16,7)
+    map(19,9,cam.x,72,16,7)
     palt()
     reset_combat_cursor()
   end
@@ -130,7 +130,6 @@ function make_fight()
     end
   end
 
-
   function make_cloud(x)
     local prox = rnd()
     local cloud = sprites.make(flr(64+rnd()*3),{
@@ -193,10 +192,10 @@ function make_fight()
   function store_intro()
     fanim=noop_f
 
-    local text_slide = tweens.make(intro_textbox,'y',48,60,'quadratic')
+    local text_slide = tweens.make(intro_textbox,'y',48,30,'quadratic')
     text_slide.ease_in_and_out=true
 
-    local store_slide = tweens.make(intro_store,'y',0,60,'quadratic')
+    local store_slide = tweens.make(intro_store,'y',0,30,'quadratic')
     store_slide.ease_in_and_out=true
 
     store_slide.next(fintro)
@@ -275,6 +274,7 @@ function make_fight()
         local jump = tweens.make(fighter,'y',fighter.y-5,14,'cubic')
         jump.ease_out = true
         jump.on_complete = exit_battle
+        inventory.increment_store()
       end
     end
   end
@@ -610,6 +610,7 @@ function make_fight()
   local function draw_enemy_stats()
     draw_stat(enemy_data.closeness,105,58,8)
     draw_stat(enemy_data.attraction,105,62,9)
+    draw_stat(enemy_data.patience,105,66,10)
   end
 
   local function draw_fight()
@@ -644,10 +645,10 @@ function make_fight()
       else
         --clear above text
         --rectfill(0,0,127,69,0)
-        map(16+3,0,cam.x,0,16,2)
+        map(16+3,0,cam.x,0,16,2) --sky
         sprites.draw(nil,10)
         palt(0,false)
-        map(19,2,cam.x,16,16,7)
+        map(19,2,cam.x,16,16,7) --beach
         if intro_store then
           map(35,0,cam.x,intro_store.y,16,6) --textbox
         end

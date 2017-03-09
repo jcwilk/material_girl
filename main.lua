@@ -55,6 +55,14 @@ function calc_doors()
   return door_data
 end
 
+function open_door()
+  for door in all(calc_doors()) do
+    if door.open then
+      return door
+    end
+  end
+end
+
 --check tile for bit
 function check_tile (x,y,bit)
   if x < 0 or x >= 16 then
@@ -115,6 +123,7 @@ function end_walkabout()
     d.kill()
   end)
   doors = nil
+  sale.counter=0
 end
 
 function update_walkabout()
@@ -122,6 +131,11 @@ function update_walkabout()
   local y = player.y
   local moved = false
   local nflp
+
+
+  place_sale()
+
+
   if btn(0) then
     nflp=true
     x=x-spd
@@ -164,6 +178,28 @@ function update_walkabout()
   return true
 end
 
+sale = {
+  alive=true,
+  counter=1,
+  text="sale"
+}
+
+function place_sale()
+  sale.counter-=1
+  sale.color = ({7,8,10,11,12,14})[flr(sale.counter/4)%6+1] --[flr(rnd(6))+1]
+  if sale.counter <= 0 then
+    local door = open_door()
+    if not door then
+      return
+    end
+    sale.x = door.x*8-18+rnd(30)
+    sale.y = door.y*8-10+rnd(20)
+    --sale.color = ({7,8,10,11,12,14})[flr(rnd(6))+1]
+    sale.counter = flr(15+rnd(5))
+    sale.text = ({"sale","omg","wow","oooh"})[flr(rnd(4))+1]
+  end
+end
+
 function _init()
   player = sprites.make(0,{x=56,y=56})
   player.walking_frames = {0,1,0,2}
@@ -175,6 +211,9 @@ function _init()
   anim_t=0
   inventory = make_inventory()
   fighting = make_fight(inventory)
+
+  place_sale()
+
   --fighting.start() --uncomment to start in a fight
 
   --music(o,0,15)
@@ -246,10 +285,8 @@ function _draw()
   palt(0,false)
   map(0,0,0,0,128,128,4)
   palt()
-  for door in all(door_data) do
-    if door.open then
-      print("sale",door.x*8-20+rnd(30),door.y*8-20+rnd(30),flr(rnd(16)))
-    end
+  if open_door() then
+    print(sale.text,sale.x,sale.y,sale.color)
   end
 end
 -- END LIB
