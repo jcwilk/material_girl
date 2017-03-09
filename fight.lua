@@ -228,7 +228,7 @@ function make_fight()
   end
 
   local function fwin()
-    if inventory.all_max() then
+    if inventory.current_store_index > 4 then
       queue_text(function()
         color(11)
         print("you win! probably...")
@@ -415,7 +415,7 @@ function make_fight()
             pal(8,inventory.ring_color)
           end
           h.centered = true
-          return tweens.make(h,'x',enemy_data.base_x+4*i,10+5*(4-inventory.ring_strength()),'cubic')
+          return tweens.make(h,'x',enemy_data.base_x+4*i,20,'cubic')
         end).next(function(h)
           enemy.x+=4
           enemy.sprite_id = 6
@@ -609,15 +609,14 @@ function make_fight()
 
   local function draw_enemy_stats()
     draw_stat(enemy_data.closeness,105,58,8)
-    draw_stat(enemy_data.patience,105,62,9)
-    draw_stat(enemy_data.attraction,105,66,10)
+    draw_stat(enemy_data.attraction,105,62,9)
   end
 
   local function draw_fight()
     if obj.active then
       draw_text()
       if game_over then
-        rectfill(128+24,0,127+128+24,71,8)
+        rectfill(cam.x,0,cam.x+127,71,8)
         sprites.draw(20,nil)
       elseif intro_slide then
         --clear above text
@@ -654,7 +653,7 @@ function make_fight()
         end
         palt()
         draw_fui()
-        --draw_enemy_stats()
+        draw_enemy_stats()
         sprites.draw(11,nil)
         draw_kiss()
       end

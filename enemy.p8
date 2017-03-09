@@ -28,21 +28,6 @@ make_enemy = function(player,attributes)
         print("he feels so far away")
       end
     },
-    patience={
-      high=function()
-        color(12)
-        print("hah, such a goofball")
-      end,
-      mid=function()
-        color(12)
-        print("your quirks test my patience")
-      end,
-      low=function()
-        color(12)
-        print("if you can't respect my time")
-        print("then i can't respect you")
-      end
-    },
     attraction={
       high=function()
         color(12)
@@ -63,23 +48,19 @@ make_enemy = function(player,attributes)
 
   local raise_multipliers = {
     closeness=function()
-      return 1+inventory.shoes_strength()/2
+      return 1.5
     end,
-    patience=inventory.lipstick_strength,
     attraction=function()
-      return (4*inventory.ring_strength()+inventory.hearts_count)/3
+      return (4+inventory.hearts_count)/3
     end
   }
 
   local lower_multipliers = {
     closeness=function()
-      return 1+inventory.shoes_strength()/2
-    end,
-    patience=function()
-      return inventory.shoes_strength()/4
+      return 1.5
     end,
     attraction=function()
-     return inventory.lipstick_strength()*1.5-inventory.dress_strength()
+     return 0.3
     end
   }
 
@@ -101,7 +82,7 @@ make_enemy = function(player,attributes)
   end
 
   local function dazzle_check()
-    return obj.closeness > 0.9 - inventory.ring_strength()/10
+    return obj.closeness > 0.5
   end
 
   local function withdraw_check()
@@ -113,15 +94,16 @@ make_enemy = function(player,attributes)
   end
 
   local function attack_check()
-    return inventory.hearts_count/obj.attraction < (0.5+inventory.dress_strength()/2)*rnd()*10
+    return inventory.hearts_count/obj.attraction < rnd()*10
   end
 
   local function counterattack_check()
-    return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25*(inventory.dress_strength()/2+0.5)
+    -- TODO: inventory.current_store_index > 1 and ...
+    return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25
   end
 
   local function flee_check()
-    return obj.patience < 0.5 and obj.patience*obj.patience < rnd()*0.25*(inventory.dress_strength()/2+0.5)
+    return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25
   end
 
   local function failed_withdraw_speech()
@@ -229,7 +211,6 @@ make_enemy = function(player,attributes)
 
     closeness = 0.2,
     attraction = 0.5,
-    patience = 1.0,
     base_y = 26,
     advance_action = function()
       local todo
@@ -258,7 +239,7 @@ make_enemy = function(player,attributes)
           end,
           middle=function()
 
-            lower_stat('patience')
+            lower_stat('attraction')
           end
         }
         attempt_counterattack()
@@ -301,11 +282,11 @@ make_enemy = function(player,attributes)
             start = function()
             end,
             middle = function()
-              lower_stat('patience')
+              lower_stat('attraction')
               queue_text(function()
                 color(14)
                 print("we've grown too close")
-                print("his eyes no longer twinkle")
+                print("his eyes no longer sparkle")
               end)
             end
           }
@@ -336,7 +317,7 @@ make_enemy = function(player,attributes)
 
       if advance_check() then
         raise_stat('closeness')
-        lower_stat('patience')
+        lower_stat('attraction')
 
         obj.current_action = {
           name="move",
@@ -359,9 +340,8 @@ make_enemy = function(player,attributes)
               color(14)
               print "mwa! :*"
             end)
-            raise_stat('patience')
             lower_stat('attraction')
-            obj.hp-=1+inventory.lipstick_strength()
+            obj.hp-=1
             if obj.hp <= 0 then --TODO: if all 4 final items, he recovers
               obj.current_action.win = true
               deferred_action = win

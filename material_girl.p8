@@ -2,6 +2,8 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 
+local inventory
+
 -- start ext ./utils.p8
 noop_f = function()
 end
@@ -414,7 +416,6 @@ function make_inventory()
  local shoes_color_map = {4,5,7,8}
  local equipped_items = {1,1,1,1}
  local owned_hearts = {}
- local current_store_index = 1
  local obj = {
   store_sprite_map = {41,39,40,38},
   dress_light_color = 11,
@@ -423,16 +424,17 @@ function make_inventory()
   lipstick_color = 8,
   shoes_color = 4,
   hearts_count = 0,
-  equipped_items = equipped_items
+  equipped_items = equipped_items,
+  current_store_index = 1
  }
 
  obj.current_store = function()
   -- lipstick, ring, shoes, dress
-  return ({2,3,4,1})[current_store_index]
+  return ({2,3,4,1})[obj.current_store_index]
  end
 
  obj.increment_store = function()
-  current_store_index+=1
+  obj.current_store_index+=1
  end
 
  obj.add_heart = function()
@@ -455,26 +457,6 @@ function make_inventory()
   tweens.make(heart,'scale',3,10).on_complete = heart.kill
  end
 
- obj.ring_strength = function()
-  return equipped_items[3]
- end
-
- obj.dress_strength = function()
-  return equipped_items[1]
- end
-
- obj.shoes_strength = function()
-  return equipped_items[4]
- end
-
- obj.lipstick_strength = function()
-  return equipped_items[2]
- end
-
- obj.all_max = function()
-  return obj.ring_strength() == 4 and obj.dress_strength() == 4 and obj.shoes_strength() == 4 and obj.lipstick_strength() == 4
- end
-
  -- obj.destroy_hearts = function()
  --  for _,h in pairs(owned_hearts) do
  --   tweens.make(h,'y',4)
@@ -482,47 +464,6 @@ function make_inventory()
 
  for i=1,4,1 do
   obj.add_heart()
- end
-
- local function update_ring(index)
-  obj.ring_color = ring_color_map[index]
- end
-
- local function update_dress(index)
-  obj.dress_light_color = dress_light_color_map[index]
-  obj.dress_dark_color = dress_dark_color_map[index]
- end
-
- local function update_shoes(index)
-  obj.shoes_color = shoes_color_map[index]
- end
-
- local function update_lipstick(index)
-  obj.lipstick_color = lipstick_color_map[index]
- end
-
- obj.update_item = function(store_index, item_index)
-  local price = obj.price_by_store_and_selection(store_index,item_index)
-  if price < 0 then
-   for i=0,price+1,-1 do
-    obj.add_heart()
-   end
-  elseif price > 0 then
-   for i=0,price-1,1 do
-    obj.remove_heart()
-   end
-  end
-
-  equipped_items[store_index] = item_index
-  if store_index == 1 then
-   update_dress(item_index)
-  elseif store_index == 2 then
-   update_lipstick(item_index)
-  elseif store_index == 3 then
-   update_ring(item_index)
-  elseif store_index == 4 then
-   update_shoes(item_index)
-  end
  end
 
  obj.remap_girl_colors = function()
@@ -533,43 +474,12 @@ function make_inventory()
   pal(4,obj.shoes_color)
  end
 
- obj.remap_store_colors = function(store_index, item_index)
-  if store_index == 1 then
-   pal(14,dress_light_color_map[item_index]) --pink
-   pal(2,dress_dark_color_map[item_index]) --purple
-  elseif store_index == 2 then
-   pal(8,lipstick_color_map[item_index]) --red
-  elseif store_index == 3 then
-   pal(7,ring_color_map[item_index])
-  elseif store_index == 4 then
-   pal(8,shoes_color_map[item_index]) --red
-  end
- end
-
  obj.remap_kiss = function()
   pal(8,obj.lipstick_color)
  end
 
  obj.remap_hearts = function()
   pal(8,obj.ring_color)
- end
-
- obj.price_by_store_and_selection = function(store_i,selection_i)
-  local selection = equipped_items[store_i]
-  if selection == selection_i then
-   return 0
-  else
-   return selection_i - selection + 1
-  end
- end
-
- obj.number_of_affordable_by_store = function(store_i)
-  local net_funds = equipped_items[store_i] + obj.hearts_count - 1
-  if net_funds > 4 then
-   return 4
-  else
-   return net_funds
-  end
  end
 
  return obj
@@ -806,7 +716,7 @@ function make_fight()
  end
 
  local function fwin()
-  if inventory.all_max() then
+  if inventory.current_store_index > 4 then
    queue_text(function()
     color(11)
     print("you win! probably...")
@@ -993,7 +903,7 @@ function make_fight()
       pal(8,inventory.ring_color)
      end
      h.centered = true
-     return tweens.make(h,'x',enemy_data.base_x+4*i,10+5*(4-inventory.ring_strength()),'cubic')
+     return tweens.make(h,'x',enemy_data.base_x+4*i,20,'cubic')
     end).next(function(h)
      enemy.x+=4
      enemy.sprite_id = 6
@@ -1187,15 +1097,14 @@ function make_fight()
 
  local function draw_enemy_stats()
   draw_stat(enemy_data.closeness,105,58,8)
-  draw_stat(enemy_data.patience,105,62,9)
-  draw_stat(enemy_data.attraction,105,66,10)
+  draw_stat(enemy_data.attraction,105,62,9)
  end
 
  local function draw_fight()
   if obj.active then
    draw_text()
    if game_over then
-    rectfill(128+24,0,127+128+24,71,8)
+    rectfill(cam.x,0,cam.x+127,71,8)
     sprites.draw(20,nil)
    elseif intro_slide then
     --clear above text
@@ -1232,7 +1141,7 @@ function make_fight()
     end
     palt()
     draw_fui()
-    --draw_enemy_stats()
+    draw_enemy_stats()
     sprites.draw(11,nil)
     draw_kiss()
    end
@@ -1361,21 +1270,6 @@ make_enemy = function(player,attributes)
     print("he feels so far away")
    end
   },
-  patience={
-   high=function()
-    color(12)
-    print("hah, such a goofball")
-   end,
-   mid=function()
-    color(12)
-    print("your quirks test my patience")
-   end,
-   low=function()
-    color(12)
-    print("if you can't respect my time")
-    print("then i can't respect you")
-   end
-  },
   attraction={
    high=function()
     color(12)
@@ -1396,23 +1290,19 @@ make_enemy = function(player,attributes)
 
  local raise_multipliers = {
   closeness=function()
-   return 1+inventory.shoes_strength()/2
+   return 1.5
   end,
-  patience=inventory.lipstick_strength,
   attraction=function()
-   return (4*inventory.ring_strength()+inventory.hearts_count)/3
+   return (4+inventory.hearts_count)/3
   end
  }
 
  local lower_multipliers = {
   closeness=function()
-   return 1+inventory.shoes_strength()/2
-  end,
-  patience=function()
-   return inventory.shoes_strength()/4
+   return 1.5
   end,
   attraction=function()
-  return inventory.lipstick_strength()*1.5-inventory.dress_strength()
+  return 0.3
   end
  }
 
@@ -1434,7 +1324,7 @@ make_enemy = function(player,attributes)
  end
 
  local function dazzle_check()
-  return obj.closeness > 0.9 - inventory.ring_strength()/10
+  return obj.closeness > 0.5
  end
 
  local function withdraw_check()
@@ -1446,15 +1336,16 @@ make_enemy = function(player,attributes)
  end
 
  local function attack_check()
-  return inventory.hearts_count/obj.attraction < (0.5+inventory.dress_strength()/2)*rnd()*10
+  return inventory.hearts_count/obj.attraction < rnd()*10
  end
 
  local function counterattack_check()
-  return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25*(inventory.dress_strength()/2+0.5)
+  -- TODO: inventory.current_store_index > 1 and ...
+  return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25
  end
 
  local function flee_check()
-  return obj.patience < 0.5 and obj.patience*obj.patience < rnd()*0.25*(inventory.dress_strength()/2+0.5)
+  return obj.attraction < 0.5 and obj.attraction*obj.attraction < rnd()*0.25
  end
 
  local function failed_withdraw_speech()
@@ -1562,7 +1453,6 @@ make_enemy = function(player,attributes)
 
   closeness = 0.2,
   attraction = 0.5,
-  patience = 1.0,
   base_y = 26,
   advance_action = function()
    local todo
@@ -1591,7 +1481,7 @@ make_enemy = function(player,attributes)
      end,
      middle=function()
 
-      lower_stat('patience')
+      lower_stat('attraction')
      end
     }
     attempt_counterattack()
@@ -1634,11 +1524,11 @@ make_enemy = function(player,attributes)
       start = function()
       end,
       middle = function()
-       lower_stat('patience')
+       lower_stat('attraction')
        queue_text(function()
         color(14)
         print("we've grown too close")
-        print("his eyes no longer twinkle")
+        print("his eyes no longer sparkle")
        end)
       end
      }
@@ -1669,7 +1559,7 @@ make_enemy = function(player,attributes)
 
    if advance_check() then
     raise_stat('closeness')
-    lower_stat('patience')
+    lower_stat('attraction')
 
     obj.current_action = {
      name="move",
@@ -1692,9 +1582,8 @@ make_enemy = function(player,attributes)
        color(14)
        print "mwa! :*"
       end)
-      raise_stat('patience')
       lower_stat('attraction')
-      obj.hp-=1+inventory.lipstick_strength()
+      obj.hp-=1
       if obj.hp <= 0 then --TODO: if all 4 final items, he recovers
        obj.current_action.win = true
        deferred_action = win
@@ -1998,14 +1887,14 @@ b3c5f445f4454445f445f33b34b5f4534b35f445f4454b34594774959f949f949dc7c7d40ee02002
 34bf4443f443f44bf44f4343543f43b343bff443f44f4335354994359f949f949d7c7cd420022212221222219f949f9422122221977777793333383533339335
 333f4f43ff4bf443fb4f43b333bf433545b3f44bff43b444334994539f949f949dddddd42e122212221222e149454945221222e1900770093383333535333353
 3b3543bb535434353b3f43b343b54b334445b34334344454445993359f949f949f949f94e00ee00eee0eee0033533533ee0eee00977777793533535335335353
-3535534353534532455353545655565500000000f55555049999999922222222111111113333333377777776777777767777777612111211f555555444553554
-543335453355335354353333656565650f000f00f64455049aaaaaa92eeeeee21cc77cc13b2bbb2377757776777577767775777621212121f6444454435ff534
-53435333535353345343535356505650f440f440f44445049aaaaaa9288eeee21c7777c13b2bbb2377555776775577767775577612101210f44444543335f453
-333545d4553545533453533505000500444444f4f44445049aa8a8892888aee21aa77aa132e2b2e375555576755555767555557601000100f44446545333f435
-35353345332333353535353356555655f4444444f44445049aaa88892e899ae21acccca13eee2ee377757776775577767775577612111211f44444545353f453
-d35353545455453d33353d3565656565f440f440f64440049a8888092e9999a21aaccaa13bbbbbb377757776777577767775777621212121f64444543533f433
-35355334355335435544534356505650ff40f440f440000598888a092ee999921caaaac13bbbbbb377777776777777767777777612101210f4444455433bf455
-54335445353535354535335305000500000000002220222099999999222222221111111133333333666666666666666666666666010001002220222043bff445
+3535534353534532455353545d515d5100000000f55555049999999922222222111111113333333377777776777777767777777612101210f555555444553554
+543335453355335354353333d5d5d5d50f000f00f64455049aaaaaa92eeeeee21cc77cc13b2bbb2377757776777577767775777621212121f6444454435ff534
+5343533353535334534353535d515d51f440f440f44445049aaaaaa9288eeee21c7777c13b2bbb2377555776775577767775577612101210f44444543335f453
+333545d4553545533453533515101510444444f4f44445049aa8a8892888aee21aa77aa132e2b2e375555576755555767555557601000100f44446545333f435
+3535334533233335353535335d515d51f4444444f44445049aaa88892e899ae21acccca13eee2ee377757776775577767775577612101210f44444545353f453
+d35353545455453d33353d35d5d5d5d5f440f440f64440049a8888092e9999a21aaccaa13bbbbbb377757776777577767775777621212121f64444543533f433
+3535533435533543554453435d515d51ff40f440f440000598888a092ee999921caaaac13bbbbbb377777776777777767777777612101210f4444455433bf455
+54335445353535354535335315101510000000002220222099999999222222221111111133333333666666666666666666666666010001002220222043bff445
 0000000048d2d2c448d4e2c4cc9ccc9c24954e9511111111ccccccccaaaaaaaa66656665aa565565001221222212212222aafaaaaaaaaaaaaaaaaa7a00000000
 00000000439be834439238349cca99cc4295e49511111c11ccccccccaaaaaafa66655555a6655666001221222212212222aaaaaaaaaaaaaaaaaaa66600000000
 000000004353335443333534c9aaaac9449544951c111111ccccccccaafaaaaa66656665a5566657001221222212212222122aafaaaaaaaaaaaa665700000000
