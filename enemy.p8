@@ -48,7 +48,7 @@ make_enemy = function(player,attributes)
 
   local raise_multipliers = {
     closeness=function()
-      return .2
+      return .25
     end,
     attraction=function()
       return (4+inventory.hearts_count)/15 --TODO
@@ -57,20 +57,24 @@ make_enemy = function(player,attributes)
 
   local lower_multipliers = {
     closeness=function()
-      return .3
+      return .33
     end,
     attraction=function()
-      if inventory.current_store_index == 1 then
-        return 0
-      else
-        return .2
-      end
+      return .2
     end
   }
 
+  local function scaling_function(original,scale)
+    return scale - .6*scale*(1-original)*(1-original)
+  end
+
   local function lower_stat(stat, multiplier)
     multiplier = multiplier or lower_multipliers[stat]()
-    obj[stat]-= obj[stat]*multiplier
+    obj[stat]-= scaling_function(obj[stat],multiplier)
+    if obj[stat] < 0.0 then
+      obj[stat] = 0
+    end
+    --
     if obj[stat] < 0.33 then
       queue_text(stat_speech[stat].low)
     elseif obj[stat] < 0.66 then
@@ -82,7 +86,10 @@ make_enemy = function(player,attributes)
 
   local function raise_stat(stat, multiplier)
     multiplier = multiplier or raise_multipliers[stat]()
-    obj[stat]+= (1-obj[stat])*multiplier
+    obj[stat]+= scaling_function(1-obj[stat],multiplier)
+    if obj[stat] > 0.9 then
+      obj[stat] = 1
+    end
   end
 
   local function dazzle_check()
@@ -90,11 +97,11 @@ make_enemy = function(player,attributes)
   end
 
   local function withdraw_check()
-    return obj.closeness > 0.2
+    return obj.closeness > 0
   end
 
   local function advance_check()
-    return obj.closeness < 0.6
+    return obj.closeness < 1
   end
 
   local function attack_check()
@@ -160,6 +167,17 @@ make_enemy = function(player,attributes)
     }
   end
 
+  local damage_player = function()
+    inventory.remove_heart()
+    obj.projectile_count = inventory.hearts_count
+    if inventory.hearts_count <= 0 then
+      obj.current_action.lose = true
+      deferred_action = lose
+    else
+      lower_stat('closeness')
+    end
+  end
+
   local function counterattack()
     obj.current_action = {
       name = 'counterattack',
@@ -174,13 +192,7 @@ make_enemy = function(player,attributes)
           color(14)
           print "so hurtful.."
         end)
-        --inventory.remove_heart()
-        if inventory.hearts_count <= 0 then
-          obj.current_action.lose = true
-          deferred_action = lose
-        else
-          lower_stat('closeness')
-        end
+        damage_player()
       end
     }
   end
@@ -216,7 +228,7 @@ make_enemy = function(player,attributes)
     hp = 1,
     patience = 1,
     closeness = 0.2,
-    attraction = .6,
+    attraction = .3,
     base_y = 26,
     advance_action = function()
       local todo
@@ -271,7 +283,7 @@ make_enemy = function(player,attributes)
         }
       end
     end,
-    dazzle = function(hearts_count)
+    dazzle = function()
       reset_actions()
 
       if dazzle_check() then
@@ -291,6 +303,7 @@ make_enemy = function(player,attributes)
             end)
           end
         }
+        obj.patience = 1
         attempt_counterattack()
       else
         obj.current_action = {
@@ -376,9 +389,40 @@ make_enemy = function(player,attributes)
     end,
     intro_speech = intro_speech
   }
-  if inventory.current_store_index > 1 then
-    obj.attraction = 0.3
+
+  if inventory.current_store_index == 1 then
+    obj.attraction = 0.6
+
+    lower_multipliers.attraction=function()
+      return 0
+    end
+  elseif inventory.current_store_index == 2 then
+    local function dazzle_check()
+      return true
+    end
   end
+
+  if inventory.current_store_index < 3 then
+    dazzle_check = function()
+      return true
+    end
+  end
+
+  if inventory.current_store_index < 4 then
+    damage_player = function()
+      lower_stat('closeness')
+    end
+    raise_multipliers.attraction=function()
+      return .5
+    end
+    obj.projectile_count = 4
+  else
+    for i=1,4,1 do
+      inventory.add_heart()
+    end
+    obj.projectile_count = inventory.hearts_count
+  end
+
   return obj
 end
 -- end lib

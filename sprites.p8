@@ -394,32 +394,24 @@ tweens = {
     local tween = options or {}
     tween.promise = promises.make()
     tween.next = tween.promise.next
+    local finished=false
     tween.advance = function()
       if not sprite.alive then
         tween.kill()
       end
-      if not tween.alive then
+      if finished or not tween.alive then
         return
       end
+
+      local time_factor
       count+= 1
-      local out
-      -- printh(sprite.sprite_id)
-      -- printh(property)
-      -- printh(final)
-      -- printh(time)
-      if tween.ease_in_and_out then
-        out = initial + diff*(1-(easing(1-easing(count/time))))
-      elseif tween.ease_out then
-        out = initial + diff*(1-(easing(1-count/time)))
-      else
-        out = initial + diff*easing(count/time)
-      end
-      if tween.rounding then
-        out = flr(out+0.5)
-      end
-      sprite[property] = out
-      if count >= time then
+      if time < 2 or count >= time then
+        finished=true
+        time_factor = 1
+        -- delay is added so a 0 duration tween won't immediately resolve
+        -- an infinitely looping 0 duration tween can't be terminated without this
         delays.make(0,function()
+          -- alive is checked last so it gets a chance to be terminated
           if tween.alive then
             tween.kill()
             if tween.on_complete then
@@ -428,7 +420,26 @@ tweens = {
             tween.promise.resolve(sprite)
           end
         end)
+      else
+        time_factor = count/time
       end
+
+      local out
+      -- printh(sprite.sprite_id)
+      -- printh(property)
+      -- printh(final)
+      -- printh(time)
+      if tween.ease_in_and_out then
+        out = initial + diff*(1-(easing(1-easing(time_factor))))
+      elseif tween.ease_out then
+        out = initial + diff*(1-(easing(1-time_factor)))
+      else
+        out = initial + diff*easing(time_factor)
+      end
+      if tween.rounding then
+        out = flr(out+0.5)
+      end
+      sprite[property] = out
     end
     tweens.pool.make(tween)
     return tween

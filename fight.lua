@@ -21,6 +21,7 @@ function make_fight()
   local game_over
   local clouds = make_pool()
   local sun
+  local just_jumped = false --fancy bounce animation
 
   ----
   -- fighting animation update logic
@@ -61,19 +62,64 @@ function make_fight()
     obj.active = false
   end
 
-  local function jump_to_closeness(on_complete)
+  local function jump_to_closeness(skip_jump_anticipation)
     cfpx = flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
+    local jump_sprites
+    if cfpx >= fighter.x then
+      jump_sprites = {1,2}
+    else
+      jump_sprites = {2,1}
+    end
 
-    fighter.sprite_id = 1
+    fighter.scale_x=4
+    fighter.scale_y=4
+    fighter.anchor_y=1
+    fighter.y+=16
 
-    tweens.make(fighter,'x',cfpx,10)
-    local jump_up = tweens.make(fighter,'y',fighter.y-10,5,'quadratic')
-    jump_up.ease_out = true
-    jump_up.on_complete = function()
-      tweens.make(fighter,'y',ofpy,5,'quadratic').on_complete = function()
+    just_jumped = true
+
+    local jump = function()
+      fighter.anchor_y=0
+      fighter.y-=32
+      tweens.make(fighter,'x',cfpx,10)
+      tweens.make(fighter,'scale_y',3.5,5,'cubic',{
+        ease_out=true
+      }).next(function()
+        return tweens.make(fighter,'scale_y',4,5,'cubic')
+      end)
+      return tweens.make(fighter,'y',fighter.y-10,5,'quadratic',{
+        ease_out=true
+      }).next(function()
+        fighter.sprite_id = jump_sprites[2]
+        return tweens.make(fighter,'y',ofpy-16,5,'quadratic')
+      end).next(function()
+        fighter.anchor_y=1
+        fighter.y+=32
+        tweens.make(fighter,'scale_x',5.5,2,'quadratic',{ease_out=true})
+        return tweens.make(fighter,'scale_y',2.8,2,'quadratic',{ease_out=true})
+      end).next(function()
         fighter.sprite_id = 0
-        on_complete()
-      end
+        tweens.make(fighter,'scale_x',4,4,'quadratic')
+        return tweens.make(fighter,'scale_y',4,4,'quadratic')
+      end).next(function()
+        fighter.scale_x = nil
+        fighter_scale_y = nil
+        fighter.anchor_y= nil
+        fighter.y-=16
+      end)
+    end
+
+    local anticipation_tween
+    if skip_jump_anticipation then
+      fighter.sprite_id = jump_sprites[1]
+      return jump()
+    else
+      tweens.make(fighter,'scale_x',5,4)
+      return tweens.make(fighter,'scale_y',3,4).next(function()
+        fighter.sprite_id = jump_sprites[1]
+        tweens.make(fighter,'scale_x',4,2)
+        return tweens.make(fighter,'scale_y',4,2)
+      end).next(jump)
     end
   end
 
@@ -98,20 +144,20 @@ function make_fight()
             fanim = false
           end
         else
-          jump_to_closeness(function()
-          end)
+          local jump = jump_to_closeness(true)
 
-          local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,'quadratic')
+          local rising = tweens.make(enemy,'y',enemy_data.base_y-10,5,'quadratic')
           rising.ease_out = true
           rising.on_complete = function()
-            tweens.make(enemy,'y',enemy_data.base_y,7,'quadratic')
+            tweens.make(enemy,'y',enemy_data.base_y,5,'quadratic')
           end
-          local pull_back = tweens.make(enemy,'x',enemy_data.base_x,14,'quadratic')
+          local pull_back = tweens.make(enemy,'x',enemy_data.base_x,10,'quadratic')
           pull_back.ease_out=true
-          pull_back.on_complete = function()
+
+          promises.all({jump,pull_back}).next(function()
             enemy.sprite_id = 4
             fanim = false
-          end
+          end)
         end
       else
         color(14)
@@ -233,8 +279,12 @@ function make_fight()
         print("you win! probably...")
         print("i havne't gotten this far")
         print("with the programming but")
-        print("good job! :D")
+        print("good job! :d")
         print("(sorry haha)")
+        delays.make(0).next(function()
+          while true do
+          end
+        end)
       end)
     end
 
@@ -268,7 +318,6 @@ function make_fight()
         tweens.make(win_heart,'y',fighter.y,12,'circular')
       end
       tweens.make(win_heart,'scale',1,24,'quadratic').on_complete = function()
-        inventory.add_heart()
         win_heart.kill()
         fighter.sprite_id = 2
         local jump = tweens.make(fighter,'y',fighter.y-5,14,'cubic')
@@ -284,9 +333,9 @@ function make_fight()
 
     fanim = noop_f
 
-    jump_to_closeness(function()
-        enemy_data.current_action.middle()
-        fanim = false
+    jump_to_closeness(just_jumped).next(function()
+      enemy_data.current_action.middle()
+      fanim = false
     end)
   end
 
@@ -298,13 +347,14 @@ function make_fight()
     fighter.walking = true
 
     approach_easing = tweens.easings.merge(tweens.easings.quadratic,tweens.easings.cubic)
-    local approach = tweens.make(fighter,'x',enemy.x-16,20,approach_easing)
-    --approach.ease_in_and_out = true
-    approach.on_complete = function()
-      fighter.walking = false
-
-      enemy_data.current_action.middle()
+    local approach = tweens.make(fighter,'x',enemy.x-12,20,approach_easing)
+    approach.next(function()
+      fighter.walking=false
       kiss=flr(rnd()*5+11)
+      return delays.make(20)
+    end).next(function()
+      enemy_data.current_action.middle()
+
       enemy.x+=8
       enemy.sprite_id=6
 
@@ -322,7 +372,7 @@ function make_fight()
           fanim=false
         end
       end
-    end
+    end)
   end
 
   local function fattack_fail()
@@ -365,6 +415,8 @@ function make_fight()
 
     fanim = noop_f
 
+    local projectile_count = enemy_data.projectile_count
+
     local rising = tweens.make(fighter,'y',ofpy-10,5)
     rising.ease_out = true
     rising.on_complete = function()
@@ -378,7 +430,7 @@ function make_fight()
       fighter.scale_x = 4
       fighter.anchor_x = 0.68
       local spinning = {delay=5,alive=true,tween=nil}
-      local fighter_promise = tweens.make(spinning,'delay',1,10+5*inventory.hearts_count,'quadratic',{
+      local fighter_promise = tweens.make(spinning,'delay',1,10+5*projectile_count,'quadratic',{
         ease_out=true,
         rounding=true
       }).next(function()
@@ -408,7 +460,7 @@ function make_fight()
 
       local last_heart_promise
 
-      for i=1,inventory.hearts_count,1 do
+      for i=1,projectile_count,1 do
         last_heart_promise = delays.make(i*5+5).next(function()
           local h = sprites.make(10,{x=fighter.x+9+10*rnd(),y=fighter.y-10+20*rnd(),z=100+i})
           h.before_draw = function()
@@ -501,9 +553,10 @@ function make_fight()
       enemy_data.advance()
       return true
     end
+    just_jumped=false
     if btn(2) and not btn(0) and not btn(1) then
       press_key(42,46,53)
-      enemy_data.dazzle(inventory.hearts_count)
+      enemy_data.dazzle()
       return true
     end
 
@@ -617,7 +670,8 @@ function make_fight()
     if obj.active then
       draw_text()
       if game_over then
-        rectfill(cam.x,0,cam.x+127,71,8)
+        rectfill(cam.x,0,cam.x+127,48,8)
+        map(19,6,cam.x,intro_textbox.y,16,10) --transparent textbox
         sprites.draw(20,nil)
       elseif intro_slide then
         --clear above text
@@ -637,24 +691,23 @@ function make_fight()
         map(0,0,0,0,16,8) --top half of town
         map(19,6,cam.x,intro_textbox.y,16,10) --textbox
         if intro_store then
-          map(35,0,cam.x,intro_store.y,16,6) --textbox
+          map(35,0,cam.x,intro_store.y,16,6) --sliding down store
         end
         palt()
 
         sprites.draw(20,nil)
       else
-        --clear above text
-        --rectfill(0,0,127,69,0)
         map(16+3,0,cam.x,0,16,2) --sky
-        sprites.draw(nil,10)
+        sprites.draw(nil,10) --clouds,sun
         palt(0,false)
         map(19,2,cam.x,16,16,7) --beach
         if intro_store then
-          map(35,0,cam.x,intro_store.y,16,6) --textbox
+          map(35,0,cam.x,intro_store.y,16,6) --store
         end
         palt()
         draw_fui()
-        draw_enemy_stats()
+        map(19,6,cam.x,intro_textbox.y,16,10) --transparent textbox
+        --draw_enemy_stats()
         sprites.draw(11,nil)
         draw_kiss()
       end

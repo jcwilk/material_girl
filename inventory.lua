@@ -16,7 +16,7 @@ function make_inventory()
     shoes_color = 4,
     hearts_count = 0,
     equipped_items = equipped_items,
-    current_store_index = 1
+    current_store_index = 5
   }
 
   obj.current_store = function()
@@ -52,10 +52,6 @@ function make_inventory()
   --  for _,h in pairs(owned_hearts) do
   --   tweens.make(h,'y',4)
   -- end
-
-  for i=1,4,1 do
-    obj.add_heart()
-  end
 
   obj.remap_girl_colors = function()
     pal(14,obj.ring_color)

@@ -5,9 +5,9 @@
 --useful for checking if a not-yet-moved-to tile will be problematic
 function sprite_collided(x,y)
   return solid_px(x,y) or
-                solid_px(x+7,y) or
-                solid_px(x,y+7) or
-                solid_px(x+7,y+7)
+    solid_px(x+7,y) or
+    solid_px(x,y+7) or
+    solid_px(x+7,y+7)
 end
 
 --check solidity by pixel
@@ -23,7 +23,7 @@ function check_px(x,y,bit)
 end
 
 local door_data
-local doors
+local doors, gate
 
 function calc_doors()
   if door_data then
@@ -123,6 +123,12 @@ function end_walkabout()
     d.kill()
   end)
   doors = nil
+  if gate then
+    gate.each(function(g)
+      g.kill()
+    end)
+    gate = nil
+  end
   sale.counter=0
 end
 
@@ -166,7 +172,7 @@ function update_walkabout()
 
   if moved then
     player.walking=true
-    if player.x > 119 then
+    if inventory.current_store_index > 4 and player.x > 119 then
       end_walkabout()
       fighting=make_fight(inventory)
       fighting.start()
@@ -201,7 +207,7 @@ function place_sale()
 end
 
 function _init()
-  player = sprites.make(0,{x=56,y=56})
+  player = sprites.make(0,{x=56,y=56,z=100})
   player.walking_frames = {0,1,0,2}
   player.walking_scale = 2
   player.before_draw = function()
@@ -222,10 +228,15 @@ function _init()
   -- subject to change, but makes things a bit easier for now
 end
 
+local flicker_count = 1
 function _update()
-  delays.process(function()
-    tweens.advance()
-  end)
+  flicker_count-=1
+  if flicker_count <= 0 then
+    delays.process(function()
+      tweens.advance()
+    end)
+    flicker_count = 1 --raise this to slow down
+  end
   return fighting.update() or update_walkabout()
 end
 
@@ -257,13 +268,19 @@ function _draw()
     return
   end
 
+  if inventory.current_store_index < 5 and not gate then
+    gate = make_pool()
+    gate.make(sprites.make(8,{x=120,y=64,z=60}))
+    gate.make(sprites.make(8,{x=120,y=56,z=60}))
+  end
+
   if not doors then
     doors = make_pool()
     for door in all(calc_doors()) do
       if door.y > 8 then
         if door.open then
-          doors.make(sprites.make(28,{x=door.x*8,y=door.y*8}))
-          doors.make(sprites.make(29,{x=door.x*8,y=door.y*8-8}))
+          doors.make(sprites.make(28,{x=door.x*8,y=door.y*8,z=120}))
+          doors.make(sprites.make(29,{x=door.x*8,y=door.y*8-8,z=120}))
         end
       else
         local sprite_id
@@ -272,7 +289,7 @@ function _draw()
         else
           sprite_id = 46
         end
-        doors.make(sprites.make(sprite_id,{x=door.x*8,y=door.y*8}))
+        doors.make(sprites.make(sprite_id,{x=door.x*8,y=door.y*8,z=60}))
       end
     end
   end

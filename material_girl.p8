@@ -360,32 +360,24 @@ tweens = {
   local tween = options or {}
   tween.promise = promises.make()
   tween.next = tween.promise.next
+  local finished=false
   tween.advance = function()
    if not sprite.alive then
     tween.kill()
    end
-   if not tween.alive then
+   if finished or not tween.alive then
     return
    end
+
+   local time_factor
    count+= 1
-   local out
-   -- printh(sprite.sprite_id)
-   -- printh(property)
-   -- printh(final)
-   -- printh(time)
-   if tween.ease_in_and_out then
-    out = initial + diff*(1-(easing(1-easing(count/time))))
-   elseif tween.ease_out then
-    out = initial + diff*(1-(easing(1-count/time)))
-   else
-    out = initial + diff*easing(count/time)
-   end
-   if tween.rounding then
-    out = flr(out+0.5)
-   end
-   sprite[property] = out
-   if count >= time then
+   if time < 2 or count >= time then
+    finished=true
+    time_factor = 1
+    -- delay is added so a 0 duration tween won't immediately resolve
+    -- an infinitely looping 0 duration tween can't be terminated without this
     delays.make(0,function()
+     -- alive is checked last so it gets a chance to be terminated
      if tween.alive then
       tween.kill()
       if tween.on_complete then
@@ -394,7 +386,26 @@ tweens = {
       tween.promise.resolve(sprite)
      end
     end)
+   else
+    time_factor = count/time
    end
+
+   local out
+   -- printh(sprite.sprite_id)
+   -- printh(property)
+   -- printh(final)
+   -- printh(time)
+   if tween.ease_in_and_out then
+    out = initial + diff*(1-(easing(1-easing(time_factor))))
+   elseif tween.ease_out then
+    out = initial + diff*(1-(easing(1-time_factor)))
+   else
+    out = initial + diff*easing(time_factor)
+   end
+   if tween.rounding then
+    out = flr(out+0.5)
+   end
+   sprite[property] = out
   end
   tweens.pool.make(tween)
   return tween
@@ -425,7 +436,7 @@ function make_inventory()
   shoes_color = 4,
   hearts_count = 0,
   equipped_items = equipped_items,
-  current_store_index = 1
+  current_store_index = 5
  }
 
  obj.current_store = function()
@@ -461,10 +472,6 @@ function make_inventory()
  --  for _,h in pairs(owned_hearts) do
  --   tweens.make(h,'y',4)
  -- end
-
- for i=1,4,1 do
-  obj.add_heart()
- end
 
  obj.remap_girl_colors = function()
   pal(14,obj.ring_color)
@@ -509,6 +516,7 @@ function make_fight()
  local game_over
  local clouds = make_pool()
  local sun
+ local just_jumped = false --fancy bounce animation
 
  ----
  -- fighting animation update logic
@@ -549,19 +557,64 @@ function make_fight()
   obj.active = false
  end
 
- local function jump_to_closeness(on_complete)
+ local function jump_to_closeness(skip_jump_anticipation)
   cfpx = flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
+  local jump_sprites
+  if cfpx >= fighter.x then
+   jump_sprites = {1,2}
+  else
+   jump_sprites = {2,1}
+  end
 
-  fighter.sprite_id = 1
+  fighter.scale_x=4
+  fighter.scale_y=4
+  fighter.anchor_y=1
+  fighter.y+=16
 
-  tweens.make(fighter,'x',cfpx,10)
-  local jump_up = tweens.make(fighter,'y',fighter.y-10,5,'quadratic')
-  jump_up.ease_out = true
-  jump_up.on_complete = function()
-   tweens.make(fighter,'y',ofpy,5,'quadratic').on_complete = function()
+  just_jumped = true
+
+  local jump = function()
+   fighter.anchor_y=0
+   fighter.y-=32
+   tweens.make(fighter,'x',cfpx,10)
+   tweens.make(fighter,'scale_y',3.5,5,'cubic',{
+    ease_out=true
+   }).next(function()
+    return tweens.make(fighter,'scale_y',4,5,'cubic')
+   end)
+   return tweens.make(fighter,'y',fighter.y-10,5,'quadratic',{
+    ease_out=true
+   }).next(function()
+    fighter.sprite_id = jump_sprites[2]
+    return tweens.make(fighter,'y',ofpy-16,5,'quadratic')
+   end).next(function()
+    fighter.anchor_y=1
+    fighter.y+=32
+    tweens.make(fighter,'scale_x',5.5,2,'quadratic',{ease_out=true})
+    return tweens.make(fighter,'scale_y',2.8,2,'quadratic',{ease_out=true})
+   end).next(function()
     fighter.sprite_id = 0
-    on_complete()
-   end
+    tweens.make(fighter,'scale_x',4,4,'quadratic')
+    return tweens.make(fighter,'scale_y',4,4,'quadratic')
+   end).next(function()
+    fighter.scale_x = nil
+    fighter_scale_y = nil
+    fighter.anchor_y= nil
+    fighter.y-=16
+   end)
+  end
+
+  local anticipation_tween
+  if skip_jump_anticipation then
+   fighter.sprite_id = jump_sprites[1]
+   return jump()
+  else
+   tweens.make(fighter,'scale_x',5,4)
+   return tweens.make(fighter,'scale_y',3,4).next(function()
+    fighter.sprite_id = jump_sprites[1]
+    tweens.make(fighter,'scale_x',4,2)
+    return tweens.make(fighter,'scale_y',4,2)
+   end).next(jump)
   end
  end
 
@@ -586,20 +639,20 @@ function make_fight()
       fanim = false
      end
     else
-     jump_to_closeness(function()
-     end)
+     local jump = jump_to_closeness(true)
 
-     local rising = tweens.make(enemy,'y',enemy_data.base_y-10,7,'quadratic')
+     local rising = tweens.make(enemy,'y',enemy_data.base_y-10,5,'quadratic')
      rising.ease_out = true
      rising.on_complete = function()
-      tweens.make(enemy,'y',enemy_data.base_y,7,'quadratic')
+      tweens.make(enemy,'y',enemy_data.base_y,5,'quadratic')
      end
-     local pull_back = tweens.make(enemy,'x',enemy_data.base_x,14,'quadratic')
+     local pull_back = tweens.make(enemy,'x',enemy_data.base_x,10,'quadratic')
      pull_back.ease_out=true
-     pull_back.on_complete = function()
+
+     promises.all({jump,pull_back}).next(function()
       enemy.sprite_id = 4
       fanim = false
-     end
+     end)
     end
    else
     color(14)
@@ -721,8 +774,12 @@ function make_fight()
     print("you win! probably...")
     print("i havne't gotten this far")
     print("with the programming but")
-    print("good job! :D")
+    print("good job! :d")
     print("(sorry haha)")
+    delays.make(0).next(function()
+     while true do
+     end
+    end)
    end)
   end
 
@@ -756,7 +813,6 @@ function make_fight()
     tweens.make(win_heart,'y',fighter.y,12,'circular')
    end
    tweens.make(win_heart,'scale',1,24,'quadratic').on_complete = function()
-    inventory.add_heart()
     win_heart.kill()
     fighter.sprite_id = 2
     local jump = tweens.make(fighter,'y',fighter.y-5,14,'cubic')
@@ -772,9 +828,9 @@ function make_fight()
 
   fanim = noop_f
 
-  jump_to_closeness(function()
-    enemy_data.current_action.middle()
-    fanim = false
+  jump_to_closeness(just_jumped).next(function()
+   enemy_data.current_action.middle()
+   fanim = false
   end)
  end
 
@@ -786,13 +842,14 @@ function make_fight()
   fighter.walking = true
 
   approach_easing = tweens.easings.merge(tweens.easings.quadratic,tweens.easings.cubic)
-  local approach = tweens.make(fighter,'x',enemy.x-16,20,approach_easing)
-  --approach.ease_in_and_out = true
-  approach.on_complete = function()
-   fighter.walking = false
-
-   enemy_data.current_action.middle()
+  local approach = tweens.make(fighter,'x',enemy.x-12,20,approach_easing)
+  approach.next(function()
+   fighter.walking=false
    kiss=flr(rnd()*5+11)
+   return delays.make(20)
+  end).next(function()
+   enemy_data.current_action.middle()
+
    enemy.x+=8
    enemy.sprite_id=6
 
@@ -810,7 +867,7 @@ function make_fight()
      fanim=false
     end
    end
-  end
+  end)
  end
 
  local function fattack_fail()
@@ -853,6 +910,8 @@ function make_fight()
 
   fanim = noop_f
 
+  local projectile_count = enemy_data.projectile_count
+
   local rising = tweens.make(fighter,'y',ofpy-10,5)
   rising.ease_out = true
   rising.on_complete = function()
@@ -866,7 +925,7 @@ function make_fight()
    fighter.scale_x = 4
    fighter.anchor_x = 0.68
    local spinning = {delay=5,alive=true,tween=nil}
-   local fighter_promise = tweens.make(spinning,'delay',1,10+5*inventory.hearts_count,'quadratic',{
+   local fighter_promise = tweens.make(spinning,'delay',1,10+5*projectile_count,'quadratic',{
     ease_out=true,
     rounding=true
    }).next(function()
@@ -896,7 +955,7 @@ function make_fight()
 
    local last_heart_promise
 
-   for i=1,inventory.hearts_count,1 do
+   for i=1,projectile_count,1 do
     last_heart_promise = delays.make(i*5+5).next(function()
      local h = sprites.make(10,{x=fighter.x+9+10*rnd(),y=fighter.y-10+20*rnd(),z=100+i})
      h.before_draw = function()
@@ -989,9 +1048,10 @@ function make_fight()
    enemy_data.advance()
    return true
   end
+  just_jumped=false
   if btn(2) and not btn(0) and not btn(1) then
    press_key(42,46,53)
-   enemy_data.dazzle(inventory.hearts_count)
+   enemy_data.dazzle()
    return true
   end
 
@@ -1105,7 +1165,8 @@ function make_fight()
   if obj.active then
    draw_text()
    if game_over then
-    rectfill(cam.x,0,cam.x+127,71,8)
+    rectfill(cam.x,0,cam.x+127,48,8)
+    map(19,6,cam.x,intro_textbox.y,16,10) --transparent textbox
     sprites.draw(20,nil)
    elseif intro_slide then
     --clear above text
@@ -1125,24 +1186,23 @@ function make_fight()
     map(0,0,0,0,16,8) --top half of town
     map(19,6,cam.x,intro_textbox.y,16,10) --textbox
     if intro_store then
-     map(35,0,cam.x,intro_store.y,16,6) --textbox
+     map(35,0,cam.x,intro_store.y,16,6) --sliding down store
     end
     palt()
 
     sprites.draw(20,nil)
    else
-    --clear above text
-    --rectfill(0,0,127,69,0)
     map(16+3,0,cam.x,0,16,2) --sky
-    sprites.draw(nil,10)
+    sprites.draw(nil,10) --clouds,sun
     palt(0,false)
     map(19,2,cam.x,16,16,7) --beach
     if intro_store then
-     map(35,0,cam.x,intro_store.y,16,6) --textbox
+     map(35,0,cam.x,intro_store.y,16,6) --store
     end
     palt()
     draw_fui()
-    draw_enemy_stats()
+    map(19,6,cam.x,intro_textbox.y,16,10) --transparent textbox
+    --draw_enemy_stats()
     sprites.draw(11,nil)
     draw_kiss()
    end
@@ -1291,7 +1351,7 @@ make_enemy = function(player,attributes)
 
  local raise_multipliers = {
   closeness=function()
-   return .2
+   return .25
   end,
   attraction=function()
    return (4+inventory.hearts_count)/15 --TODO
@@ -1300,20 +1360,24 @@ make_enemy = function(player,attributes)
 
  local lower_multipliers = {
   closeness=function()
-   return .3
+   return .33
   end,
   attraction=function()
-   if inventory.current_store_index == 1 then
-    return 0
-   else
-    return .2
-   end
+   return .2
   end
  }
 
+ local function scaling_function(original,scale)
+  return scale - .6*scale*(1-original)*(1-original)
+ end
+
  local function lower_stat(stat, multiplier)
   multiplier = multiplier or lower_multipliers[stat]()
-  obj[stat]-= obj[stat]*multiplier
+  obj[stat]-= scaling_function(obj[stat],multiplier)
+  if obj[stat] < 0.0 then
+   obj[stat] = 0
+  end
+  --
   if obj[stat] < 0.33 then
    queue_text(stat_speech[stat].low)
   elseif obj[stat] < 0.66 then
@@ -1325,7 +1389,10 @@ make_enemy = function(player,attributes)
 
  local function raise_stat(stat, multiplier)
   multiplier = multiplier or raise_multipliers[stat]()
-  obj[stat]+= (1-obj[stat])*multiplier
+  obj[stat]+= scaling_function(1-obj[stat],multiplier)
+  if obj[stat] > 0.9 then
+   obj[stat] = 1
+  end
  end
 
  local function dazzle_check()
@@ -1333,11 +1400,11 @@ make_enemy = function(player,attributes)
  end
 
  local function withdraw_check()
-  return obj.closeness > 0.2
+  return obj.closeness > 0
  end
 
  local function advance_check()
-  return obj.closeness < 0.6
+  return obj.closeness < 1
  end
 
  local function attack_check()
@@ -1403,6 +1470,17 @@ make_enemy = function(player,attributes)
   }
  end
 
+ local damage_player = function()
+  inventory.remove_heart()
+  obj.projectile_count = inventory.hearts_count
+  if inventory.hearts_count <= 0 then
+   obj.current_action.lose = true
+   deferred_action = lose
+  else
+   lower_stat('closeness')
+  end
+ end
+
  local function counterattack()
   obj.current_action = {
    name = 'counterattack',
@@ -1417,13 +1495,7 @@ make_enemy = function(player,attributes)
      color(14)
      print "so hurtful.."
     end)
-    --inventory.remove_heart()
-    if inventory.hearts_count <= 0 then
-     obj.current_action.lose = true
-     deferred_action = lose
-    else
-     lower_stat('closeness')
-    end
+    damage_player()
    end
   }
  end
@@ -1459,7 +1531,7 @@ make_enemy = function(player,attributes)
   hp = 1,
   patience = 1,
   closeness = 0.2,
-  attraction = .6,
+  attraction = .3,
   base_y = 26,
   advance_action = function()
    local todo
@@ -1514,7 +1586,7 @@ make_enemy = function(player,attributes)
     }
    end
   end,
-  dazzle = function(hearts_count)
+  dazzle = function()
    reset_actions()
 
    if dazzle_check() then
@@ -1534,6 +1606,7 @@ make_enemy = function(player,attributes)
       end)
      end
     }
+    obj.patience = 1
     attempt_counterattack()
    else
     obj.current_action = {
@@ -1619,9 +1692,40 @@ make_enemy = function(player,attributes)
   end,
   intro_speech = intro_speech
  }
- if inventory.current_store_index > 1 then
-  obj.attraction = 0.3
+
+ if inventory.current_store_index == 1 then
+  obj.attraction = 0.6
+
+  lower_multipliers.attraction=function()
+   return 0
+  end
+ elseif inventory.current_store_index == 2 then
+  local function dazzle_check()
+   return true
+  end
  end
+
+ if inventory.current_store_index < 3 then
+  dazzle_check = function()
+   return true
+  end
+ end
+
+ if inventory.current_store_index < 4 then
+  damage_player = function()
+   lower_stat('closeness')
+  end
+  raise_multipliers.attraction=function()
+   return .5
+  end
+  obj.projectile_count = 4
+ else
+  for i=1,4,1 do
+   inventory.add_heart()
+  end
+  obj.projectile_count = inventory.hearts_count
+ end
+
  return obj
 end
 -- end ext
@@ -1632,9 +1736,9 @@ end
 --useful for checking if a not-yet-moved-to tile will be problematic
 function sprite_collided(x,y)
  return solid_px(x,y) or
-        solid_px(x+7,y) or
-        solid_px(x,y+7) or
-        solid_px(x+7,y+7)
+  solid_px(x+7,y) or
+  solid_px(x,y+7) or
+  solid_px(x+7,y+7)
 end
 
 --check solidity by pixel
@@ -1650,7 +1754,7 @@ function check_px(x,y,bit)
 end
 
 local door_data
-local doors
+local doors, gate
 
 function calc_doors()
  if door_data then
@@ -1750,6 +1854,12 @@ function end_walkabout()
   d.kill()
  end)
  doors = nil
+ if gate then
+  gate.each(function(g)
+   g.kill()
+  end)
+  gate = nil
+ end
  sale.counter=0
 end
 
@@ -1793,7 +1903,7 @@ function update_walkabout()
 
  if moved then
   player.walking=true
-  if player.x > 119 then
+  if inventory.current_store_index > 4 and player.x > 119 then
    end_walkabout()
    fighting=make_fight(inventory)
    fighting.start()
@@ -1828,7 +1938,7 @@ function place_sale()
 end
 
 function _init()
- player = sprites.make(0,{x=56,y=56})
+ player = sprites.make(0,{x=56,y=56,z=100})
  player.walking_frames = {0,1,0,2}
  player.walking_scale = 2
  player.before_draw = function()
@@ -1849,10 +1959,15 @@ function _init()
  -- subject to change, but makes things a bit easier for now
 end
 
+local flicker_count = 1
 function _update()
- delays.process(function()
-  tweens.advance()
- end)
+ flicker_count-=1
+ if flicker_count <= 0 then
+  delays.process(function()
+   tweens.advance()
+  end)
+  flicker_count = 1 --raise this to slow down
+ end
  return fighting.update() or update_walkabout()
 end
 
@@ -1884,13 +1999,19 @@ function _draw()
   return
  end
 
+ if inventory.current_store_index < 5 and not gate then
+  gate = make_pool()
+  gate.make(sprites.make(8,{x=120,y=64,z=60}))
+  gate.make(sprites.make(8,{x=120,y=56,z=60}))
+ end
+
  if not doors then
   doors = make_pool()
   for door in all(calc_doors()) do
    if door.y > 8 then
     if door.open then
-     doors.make(sprites.make(28,{x=door.x*8,y=door.y*8}))
-     doors.make(sprites.make(29,{x=door.x*8,y=door.y*8-8}))
+     doors.make(sprites.make(28,{x=door.x*8,y=door.y*8,z=120}))
+     doors.make(sprites.make(29,{x=door.x*8,y=door.y*8-8,z=120}))
     end
    else
     local sprite_id
@@ -1899,7 +2020,7 @@ function _draw()
     else
      sprite_id = 46
     end
-    doors.make(sprites.make(sprite_id,{x=door.x*8,y=door.y*8}))
+    doors.make(sprites.make(sprite_id,{x=door.x*8,y=door.y*8,z=60}))
    end
   end
  end
@@ -1918,14 +2039,14 @@ function _draw()
 end
 -- end ext
 __gfx__
-0aaeaa0000aaeaa00aaeaa0000000000000444000044400000044400000000000000000099999999088188100000000000000000008880000000000000000000
-0a0acf000a00acf00a0acf0000000000000fc50000fc5000000fc50f000000000000000097777779888888810008888000000080888888000080080000000000
-0000f80000000f8f00f0f800000000000f6e466ff6e46600006e466f000000000000000097677679888888810088880800088808088888880888888000888800
-000f3bb0000f3bb0000f3bb0000000000f56655ff56655f00f56655f00000000000000009eee9eee888888810888008000880080800088888888888808880080
-00f0ff0f00f0ff000000ff0f0000000000066500006650f00f066500000000000000000020002000088888100800888000800880880008880800008008008880
-0003bb000003bbf00003bb0000000000000ccc1004ccc10000ccccf0000000000000000022122221008881008088880000808800888000888880088800888800
-000f0f00000f004000004f0000000000000f0f0005f0ccf000f104400000000000000000221222e1000810000888800008088000088888080888888000000000
-000404000004000000000400000000000045450000000450044000000000000000000000ee0eee00000000000000000000800000000888800088880000000000
+0aaeaa0000aaeaa00aaeaa0000000000000444000044400000044400000000000000005f99999999088188100000000000000000008880000000000000000000
+0a0acf000a00acf00a0acf0000000000000fc50000fc5000000fc50f00000000000000f497777779888888810008888000000080888888000080080000000000
+0000f80000000f8f00f0f800000000000f6e466ff6e46600006e466f00000000000000f497677679888888810088880800088808088888880888888000888800
+000f3bb0000f3bb0000f3bb0000000000f56655ff56655f00f56655f00000000000000549eee9eee888888810888008000880080800088888888888808880080
+00f0ff0f00f0ff000000ff0f0000000000066500006650f00f066500000000000000005f20002000088888100800888000800880880008880800008008008880
+0003bb000003bbf00003bb0000000000000ccc1004ccc10000ccccf000000000000000f422122221008881008088880000808800888000888880088800888800
+000f0f00000f004000004f0000000000000f0f0005f0ccf000f1044000000000000000f4221222e1000810000888800008088000088888080888888000000000
+000404000004000000000400000000000045450000000450044000000000000000000054ee0eee00000000000000000000800000000888800088880000000000
 44443b3b45443443454344443335f3434b35f33bbb35fbb45438c5539f949f949f949f9400200020433453549f949f949777777900000000343bbb3443bbbbb3
 4cb33f3b3f355f3b3f3b3844353f4b33433f4f3b3f3f4333437c87359f949f949dddddd412221222455435349f949f9497777779000000003bbb33b33bbb33b4
 44b3f443f443f443f4433b3435bf433434bff443f44f432b57b8cb739f949f949dc7c7d4122e02ee343533449f949f949767767949999994bb3338333b33333b
@@ -1940,7 +2061,7 @@ b3c5f445f4454445f445f33b34b5f4534b35f445f4454b34594774959f949f949dc7c7d40ee02002
 333545d4553545533453533515101510444444f4f44445049aa8a8892888aee21aa77aa132e2b2e375555576755555767555557601000100f44446545333f435
 3535334533233335353535335d515d51f4444444f44445049aaa88892e899ae21acccca13eee2ee377757776775577767775577612101210f44444545353f453
 d35353545455453d33353d35d5d5d5d5f440f440f64440049a8888092e9999a21aaccaa13bbbbbb377757776777577767775777621212121f64444543533f433
-3535533435533543554453435d515d51ff40f440f440000598888a092ee999921caaaac13bbbbbb377777776777777767777777612101210f4444455433bf455
+3535533435533543554453435d515d51ff40f440f440000598888a092ee999921caaaac13bbbbbb377777776777777767777777612101220f4444455433bf455
 54335445353535354535335315101510000000002220222099999999222222221111111133333333666666666666666666666666010001002220222043bff445
 0000000048d2d2c448d4e2c4cc9ccc9c24954e9511111111ccccccccaaaaaaaa66656665aa565565001221222212212222aafaaaaaaaaaaaaaaaaa7a00000000
 00000000439be834439238349cca99cc4295e49511111c11ccccccccaaaaaafa66655555a6655666001221222212212222aaaaaaaaaaaaaaaaaaa66600000000
@@ -2066,7 +2187,7 @@ __map__
 1319191919192f2f1818181718181813373739543f3f3f3f3f3f3f3f3f3f3f3f3f3f56000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 1318172717181f1e1718172617181713373739543f3f3f3f3f3f3f3f3f3f3f3f3f3f56000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 131b1b1b1b1b2f2f1b1b1b1b1b1b1b13373739543f3f3f3f3f3f3f3f3f3f3f3f3f3f56000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-1411111111111111111111111111111537373957585858585858585858585858585859000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+14111111111111111111111111111115373739543f3f3f3f3f3f3f3f3f3f3f3f3f3f56000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
