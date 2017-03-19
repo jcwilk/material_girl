@@ -47,52 +47,72 @@ id_f = function(val)
 end
 
 -- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
-function heapsort(t, cmp)
- local n = #t
- if n <= 1 then
-  return
- end
- local i, j, temp
- local lower = flr(n / 2) + 1
- local upper = n
- cmp = cmp or function(a,b)
-  if a < b then
-   return -1
-  elseif a == b then
-   return 0
-  else
-   return 1
-  end
- end
- while 1 do
-  if lower > 1 then
-   lower -= 1
-   temp = t[lower]
-  else
-   temp = t[upper]
-   t[upper] = t[1]
-   upper -= 1
-   if upper == 1 then
-    t[1] = temp
-    return
-   end
-  end
+-- function heapsort(t, cmp)
+--   local n = #t
+--   if n <= 1 then
+--     return
+--   end
+--   local i, j, temp
+--   local lower = flr(n / 2) + 1
+--   local upper = n
+--   cmp = cmp or function(a,b)
+--     if a < b then
+--       return -1
+--     elseif a == b then
+--       return 0
+--     else
+--       return 1
+--     end
+--   end
+--   while 1 do
+--     if lower > 1 then
+--       lower -= 1
+--       temp = t[lower]
+--     else
+--       temp = t[upper]
+--       t[upper] = t[1]
+--       upper -= 1
+--       if upper == 1 then
+--         t[1] = temp
+--         return
+--       end
+--     end
 
-  i = lower
-  j = lower * 2
-  while j <= upper do
-   if j < upper and cmp(t[j], t[j+1]) < 0 then
-    j += 1
+--     i = lower
+--     j = lower * 2
+--     while j <= upper do
+--       if j < upper and cmp(t[j], t[j+1]) < 0 then
+--         j += 1
+--       end
+--       if cmp(temp, t[j]) < 0 then
+--         t[i] = t[j]
+--         i = j
+--         j += i
+--       else
+--         j = upper + 1
+--       end
+--     end
+--     t[i] = temp
+--   end
+-- end
+
+
+
+function bubble_sort(t, field, default)
+ if #t > 1 then
+  local do_pass = function()
+   local swp
+   for i=1,(#t-1) do
+    if (t[i][field] or default) > (t[i+1][field] or default) then
+     swp = t[i+1]
+     t[i+1] = t[i]
+     t[i] = swp
+    end
    end
-   if cmp(temp, t[j]) < 0 then
-    t[i] = t[j]
-    i = j
-    j += i
-   else
-    j = upper + 1
-   end
+   return swp
   end
-  t[i] = temp
+  while do_pass() do
+  end
  end
 end
 
@@ -114,24 +134,8 @@ make_pool = function()
  return {
   each = each,
   each_in_order = function(key, default, f)
-   local sorted = {}
-   each(function(v)
-    add(sorted,v)
-   end)
-   heapsort(sorted,function(a,b)
-    a = a[key] or default
-    b = b[key] or default
-    if a < b then
-     return -1
-    elseif a == b then
-     return 0
-    else
-     return 1
-    end
-   end)
-   for _,val in pairs(sorted) do
-    f(val)
-   end
+   bubble_sort(store,key,default)
+   each(f)
   end,
   store = store,
   make = function(obj)
