@@ -215,6 +215,28 @@ make_enemy = function(player,attributes)
     }
   end
 
+  local function run()
+    obj.current_action = {
+      name = 'run',
+      start = function()
+        queue_text(function()
+          color(12)
+          local picker = rnd()
+          if picker < 0.6 then
+            print "what of the time we shared?"
+          elseif picker < 0.9 then
+            print "do i mean nothing to you?"
+          else
+            print "i knew you were a mistake."
+          end
+        end)
+      end,
+      middle = function()
+        queue_text(withdraw_speech)
+      end
+    }
+  end
+
   local function attempt_counterattack()
     if counterattack_check() then
       deferred_action = counterattack
@@ -262,25 +284,7 @@ make_enemy = function(player,attributes)
         }
         attempt_counterattack()
       else
-        obj.current_action = {
-          name = 'run',
-          start = function()
-            queue_text(function()
-              color(12)
-              local picker = rnd()
-              if picker < 0.6 then
-                print "what of the time we shared?"
-              elseif picker < 0.9 then
-                print "do i mean nothing to you?"
-              else
-                print "i knew you were a mistake."
-              end
-            end)
-          end,
-          middle = function()
-          queue_text(withdraw_speech)
-        end
-        }
+        run()
       end
     end,
     dazzle = function()
@@ -417,6 +421,17 @@ make_enemy = function(player,attributes)
     end
     obj.projectile_count = 4
   else
+    if inventory.current_store_index == 4 then
+      damage_player = function()
+        inventory.remove_heart()
+        obj.projectile_count = inventory.hearts_count
+        if inventory.hearts_count <= 0 then
+          deferred_action = run
+        else
+          lower_stat('closeness')
+        end
+      end
+    end
     for i=1,4,1 do
       inventory.add_heart()
     end

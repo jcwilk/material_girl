@@ -228,15 +228,15 @@ function _init()
   -- subject to change, but makes things a bit easier for now
 end
 
-local flicker_count = 1
+--local flicker_count = 1
 function _update()
-  flicker_count-=1
-  if flicker_count <= 0 then
+  --flicker_count-=1
+  --if flicker_count <= 0 then
     delays.process(function()
       tweens.advance()
     end)
-    flicker_count = 1 --raise this to slow down
-  end
+    --flicker_count = 1 --raise this to slow down
+  --end
   return fighting.update() or update_walkabout()
 end
 

@@ -26,6 +26,10 @@ function make_fight()
   ----
   -- fighting animation update logic
   ----
+  local function calc_fighter_x()
+    return flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
+  end
+
   local function reset_combat_cursor()
     cursor(cam.x+2,73)
   end
@@ -56,6 +60,7 @@ function make_fight()
     end
     enemy.kill()
     fighter.kill()
+    inventory.clear_hearts()
     cam.x = 0
     cam.y = 0
     sprites.make(player.sprite_id,player).flip = true
@@ -63,7 +68,7 @@ function make_fight()
   end
 
   local function jump_to_closeness(skip_jump_anticipation)
-    cfpx = flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
+    cfpx = calc_fighter_x()
     local jump_sprites
     if cfpx >= fighter.x then
       jump_sprites = {1,2}
@@ -82,10 +87,15 @@ function make_fight()
       fighter.anchor_y=0
       fighter.y-=32
       tweens.make(fighter,'x',cfpx,10)
-      tweens.make(fighter,'scale_y',3.5,5,'cubic',{
-        ease_out=true
-      }).next(function()
-        return tweens.make(fighter,'scale_y',4,5,'cubic')
+      tweens.make(fighter,'scale_x',3.5,3).next(function()
+        return tweens.make(fighter,'scale_x',4,3)
+      end)
+      tweens.make(fighter,'scale_y',5,3).next(function()
+        return tweens.make(fighter,'scale_y',3.5,3,'cubic',{
+          ease_out=true
+        })
+      end).next(function()
+        return tweens.make(fighter,'scale_y',4,4,'cubic')
       end)
       return tweens.make(fighter,'y',fighter.y-10,5,'quadratic',{
         ease_out=true
@@ -114,7 +124,7 @@ function make_fight()
       fighter.sprite_id = jump_sprites[1]
       return jump()
     else
-      tweens.make(fighter,'scale_x',5,4)
+      tweens.make(fighter,'scale_x',6,4)
       return tweens.make(fighter,'scale_y',3,4).next(function()
         fighter.sprite_id = jump_sprites[1]
         tweens.make(fighter,'scale_x',4,2)
@@ -195,7 +205,7 @@ function make_fight()
 
   local function fintro()
     fanim=noop_f
-    tweens.make(fighter,'x',ofpx,20)
+    tweens.make(fighter,'x',cfpx,20)
     tweens.make(fighter,'y',ofpy,40,'quadratic')
     tweens.make(fighter,'scale',4,40,'quadratic').next(function()
       fighter.walking = false
@@ -411,18 +421,13 @@ function make_fight()
 
   local function fmagic()
     local spinx = fighter.x
-    fighter.sprite_id = 1
+    --fighter.sprite_id = 1
 
     fanim = noop_f
 
     local projectile_count = enemy_data.projectile_count
 
-    local rising = tweens.make(fighter,'y',ofpy-10,5)
-    rising.ease_out = true
-    rising.on_complete = function()
-      tweens.make(fighter,'y',ofpy,5)
-    end
-    tweens.make(fighter,'scale',5,10).on_complete = function()
+    jump_to_closeness().next(function()
       enemy_data.current_action.start()
       fighter.sprite_id=2
       local counter=0
@@ -494,7 +499,7 @@ function make_fight()
       promises.all({fighter_promise,last_heart_promise}).next(function()
         fanim=false
       end)
-    end
+    end)
   end
 
   local function frun()
@@ -643,27 +648,19 @@ function make_fight()
   end
 
   local function draw_stat(percentage, left_x, top_y, color)
-    local bar_width
-    if percentage > 1 then
-      bar_width = 20
-    elseif percentage < 0 then
-      bar_width = 0
-    else
-      bar_width = flr(20*percentage)
-    end
-    rectfill(cam.x+left_x,cam.y+top_y,cam.x+left_x+21,cam.y+top_y+2,5)
-    if bar_width > 0 then
-      rectfill(cam.x+left_x+21-bar_width,cam.y+top_y+1,cam.x+left_x+20,cam.y+top_y+1,color)
-    end
-    if bar_width < 20 then
-      rectfill(cam.x+left_x+1,cam.y+top_y+1,cam.x+left_x+20-bar_width,cam.y+top_y+1,0)
-    end
+    of_twenty = flr(max(percentage,0,1)*20+0.5)
+    line(20-of_twenty,top_y,left_x+20,top_y,color)
   end
 
+  local highest_cpu = 0
   local function draw_enemy_stats()
-    draw_stat(enemy_data.closeness,105,58,8)
-    draw_stat(enemy_data.attraction,105,62,9)
-    draw_stat(enemy_data.patience,105,66,10)
+    draw_stat(enemy_data.closeness,0,9,8)
+    draw_stat(enemy_data.attraction,0,10,9)
+    draw_stat(enemy_data.patience,0,11,10)
+    draw_stat(stat(0)/1024,0,12,11)
+    draw_stat(stat(1),0,13,12)
+    highest_cpu = max(highest_cpu,stat(1))
+    draw_stat(highest_cpu,0,14,13)
   end
 
   local function draw_fight()
@@ -707,7 +704,7 @@ function make_fight()
         palt()
         draw_fui()
         map(19,6,cam.x,intro_textbox.y,16,10) --transparent textbox
-        --draw_enemy_stats()
+        draw_enemy_stats()
         sprites.draw(11,nil)
         draw_kiss()
       end
@@ -718,7 +715,7 @@ function make_fight()
   end
 
   local function start_common()
-    cfpx=ofpx
+    cfpx=calc_fighter_x()
 
     player.kill()
 
