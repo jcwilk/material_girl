@@ -6,7 +6,6 @@ make_enemy = function(player,attributes)
   local sprite = sprites.make(4,attributes)
   sprite.centered = true
   sprite.walking_frames = {4,5,4,6}
-  local player_def = inventory.equipped_items[1]-1
   local action_index = 1
   local obj
   local deferred_action = nil

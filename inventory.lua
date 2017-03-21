@@ -1,21 +1,19 @@
 -- START LIB
 function make_inventory()
-  local dress_light_color_map = {11,14,10,13}
-  local dress_dark_color_map = {3,2,9,1}
-  local lipstick_color_map = {8,14,13,2}
-  local ring_color_map = {14,13,9,8}
-  local shoes_color_map = {4,5,7,8}
-  local equipped_items = {1,1,1,1}
   local owned_hearts = {}
-  local obj = {
+  local obj
+  local choose = function(map,min_index)
+    return function()
+      if min_index < obj.current_store_index then
+        return map[4]
+      else
+        return map[1]
+      end
+    end
+  end
+  obj = {
     store_sprite_map = {41,39,40,38},
-    dress_light_color = 11,
-    dress_dark_color = 3,
-    ring_color = 14,
-    lipstick_color = 8,
-    shoes_color = 4,
     hearts_count = 0,
-    equipped_items = equipped_items,
     current_store_index = 1
   }
 
@@ -57,19 +55,31 @@ function make_inventory()
   end
 
   obj.remap_girl_colors = function()
-    pal(14,obj.ring_color)
-    pal(8,obj.lipstick_color)
-    pal(11,obj.dress_light_color)
-    pal(3,obj.dress_dark_color)
-    pal(4,obj.shoes_color)
+    if obj.current_store_index > 1 then --lipstick
+      pal(8,2)
+    end
+    if obj.current_store_index > 2 then --ring
+      pal(14,8)
+    end
+    if obj.current_store_index > 3 then --shoes
+      pal(4,8)
+    end
+    if obj.current_store_index > 4 then --dress
+      pal(11,13)
+      pal(3,1)
+    end
   end
 
   obj.remap_kiss = function()
-    pal(8,obj.lipstick_color)
+    if obj.current_store_index > 1 then
+      pal(8,2)
+    end
   end
 
   obj.remap_hearts = function()
-    pal(8,obj.ring_color)
+    if obj.current_store_index < 3 then
+      pal(8,14)
+    end
   end
 
   return obj

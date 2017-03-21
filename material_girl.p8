@@ -424,22 +424,20 @@ tweens = {
 
 -- start ext inventory.lua
 function make_inventory()
- local dress_light_color_map = {11,14,10,13}
- local dress_dark_color_map = {3,2,9,1}
- local lipstick_color_map = {8,14,13,2}
- local ring_color_map = {14,13,9,8}
- local shoes_color_map = {4,5,7,8}
- local equipped_items = {1,1,1,1}
  local owned_hearts = {}
- local obj = {
+ local obj
+ local choose = function(map,min_index)
+  return function()
+   if min_index < obj.current_store_index then
+    return map[4]
+   else
+    return map[1]
+   end
+  end
+ end
+ obj = {
   store_sprite_map = {41,39,40,38},
-  dress_light_color = 11,
-  dress_dark_color = 3,
-  ring_color = 14,
-  lipstick_color = 8,
-  shoes_color = 4,
   hearts_count = 0,
-  equipped_items = equipped_items,
   current_store_index = 1
  }
 
@@ -481,19 +479,31 @@ function make_inventory()
  end
 
  obj.remap_girl_colors = function()
-  pal(14,obj.ring_color)
-  pal(8,obj.lipstick_color)
-  pal(11,obj.dress_light_color)
-  pal(3,obj.dress_dark_color)
-  pal(4,obj.shoes_color)
+  if obj.current_store_index > 1 then --lipstick
+   pal(8,2)
+  end
+  if obj.current_store_index > 2 then --ring
+   pal(14,8)
+  end
+  if obj.current_store_index > 3 then --shoes
+   pal(4,8)
+  end
+  if obj.current_store_index > 4 then --dress
+   pal(11,13)
+   pal(3,1)
+  end
  end
 
  obj.remap_kiss = function()
-  pal(8,obj.lipstick_color)
+  if obj.current_store_index > 1 then
+   pal(8,2)
+  end
  end
 
  obj.remap_hearts = function()
-  pal(8,obj.ring_color)
+  if obj.current_store_index < 3 then
+   pal(8,14)
+  end
  end
 
  return obj
@@ -801,7 +811,9 @@ function make_fight()
   end
 
   local winwait=60
-  local win_heart = sprites.make(10,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
+  local win_sprite_id = ({39,40,38,41,10})[inventory.current_store_index]
+  local win_heart = sprites.make(win_sprite_id,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
+
   local tweening = false
   fanim = function()
    if winwait>0 then
@@ -971,7 +983,7 @@ function make_fight()
     last_heart_promise = delays.make(i*5+5).next(function()
      local h = sprites.make(10,{x=fighter.x+9+10*rnd(),y=fighter.y-10+20*rnd(),z=100+i})
      h.before_draw = function()
-      pal(8,inventory.ring_color)
+      inventory.remap_hearts()
      end
      h.centered = true
      return tweens.make(h,'x',enemy_data.base_x+4*i,20,'cubic')
@@ -1206,7 +1218,7 @@ function make_fight()
     palt()
     draw_fui()
     map(19,6,cam.x,intro_textbox.y,16,10) --transparent textbox
-    draw_enemy_stats()
+    --draw_enemy_stats()
     sprites.draw(11,nil)
     draw_kiss()
    end
@@ -1313,7 +1325,6 @@ make_enemy = function(player,attributes)
  local sprite = sprites.make(4,attributes)
  sprite.centered = true
  sprite.walking_frames = {4,5,4,6}
- local player_def = inventory.equipped_items[1]-1
  local action_index = 1
  local obj
  local deferred_action = nil

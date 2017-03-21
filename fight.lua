@@ -299,7 +299,9 @@ function make_fight()
     end
 
     local winwait=60
-    local win_heart = sprites.make(10,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
+    local win_sprite_id = ({39,40,38,41,10})[inventory.current_store_index]
+    local win_heart = sprites.make(win_sprite_id,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
+
     local tweening = false
     fanim = function()
       if winwait>0 then
@@ -469,7 +471,7 @@ function make_fight()
         last_heart_promise = delays.make(i*5+5).next(function()
           local h = sprites.make(10,{x=fighter.x+9+10*rnd(),y=fighter.y-10+20*rnd(),z=100+i})
           h.before_draw = function()
-            pal(8,inventory.ring_color)
+            inventory.remap_hearts()
           end
           h.centered = true
           return tweens.make(h,'x',enemy_data.base_x+4*i,20,'cubic')
@@ -704,7 +706,7 @@ function make_fight()
         palt()
         draw_fui()
         map(19,6,cam.x,intro_textbox.y,16,10) --transparent textbox
-        draw_enemy_stats()
+        --draw_enemy_stats()
         sprites.draw(11,nil)
         draw_kiss()
       end
