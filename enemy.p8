@@ -14,8 +14,8 @@ make_enemy = function(player,attributes)
     closeness={
       high=function()
         color(14)
-        print("we draw apart")
-        print("but i still feel close to him")
+        print("just a little closer and he'll")
+        print("let me into his heart")
       end,
       mid=function()
         color(14)
@@ -35,12 +35,12 @@ make_enemy = function(player,attributes)
       end,
       mid=function()
         color(12)
-        print("you're rather fetching")
+        print("you're quite fetching but")
+        print("i still have reservations")
       end,
       low=function()
         color(12)
-        print("i'm sorry but")
-        print("i think i need space")
+        print("maybe we could just be friends?")
       end
     }
   }
@@ -67,6 +67,23 @@ make_enemy = function(player,attributes)
     return scale - .6*scale*(1-original)*(1-original)
   end
 
+  last_stat_map = {}
+  local function report_stat(stat)
+    local level
+    if obj[stat] < 0.4 then
+      level = 'low'
+    elseif obj[stat] < 0.8 then
+      level = 'mid'
+    else
+      level = 'high'
+    end
+
+    if last_stat_map[stat] != level then
+      last_stat_map[stat] = level
+      queue_text(stat_speech[stat][level])
+    end
+  end
+
   local function lower_stat(stat, multiplier)
     multiplier = multiplier or lower_multipliers[stat]()
     obj[stat]-= scaling_function(obj[stat],multiplier)
@@ -74,13 +91,7 @@ make_enemy = function(player,attributes)
       obj[stat] = 0
     end
     --
-    if obj[stat] < 0.33 then
-      queue_text(stat_speech[stat].low)
-    elseif obj[stat] < 0.66 then
-      queue_text(stat_speech[stat].mid)
-    else
-      queue_text(stat_speech[stat].high)
-    end
+    report_stat(stat)
   end
 
   local function raise_stat(stat, multiplier)
@@ -89,6 +100,8 @@ make_enemy = function(player,attributes)
     if obj[stat] > 0.9 then
       obj[stat] = 1
     end
+
+    report_stat(stat)
   end
 
   local function dazzle_check()
@@ -183,7 +196,7 @@ make_enemy = function(player,attributes)
       start = function()
         queue_text(function()
           color(12)
-          print "aint got nothin on this!"
+          print "i've had enough of this"
         end)
       end,
       middle = function()

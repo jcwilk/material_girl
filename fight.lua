@@ -221,6 +221,18 @@ function make_fight()
       intro_slide = false
       enemy.walking=false
       fanim=false
+
+      queue_text(function()
+        reset_combat_cursor()
+        if inventory.current_store_index <= 4 then
+          color(12)
+          print "welcome, see how this fits"
+        else
+          color(14)
+          print "he's absolutely stunning. it's"
+          print "all been building up to this"
+        end
+      end)
     end)
   end
 
@@ -287,10 +299,9 @@ function make_fight()
       queue_text(function()
         color(11)
         print("you win! probably...")
-        print("i havne't gotten this far")
+        print("i haven't gotten this far")
         print("with the programming but")
         print("good job! :d")
-        print("(sorry haha)")
         delays.make(0).next(function()
           while true do
           end
@@ -301,6 +312,9 @@ function make_fight()
     local winwait=60
     local win_sprite_id = ({39,40,38,41,10})[inventory.current_store_index]
     local win_heart = sprites.make(win_sprite_id,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
+    win_heart.before_draw = function()
+      palt(0,false)
+    end
 
     local tweening = false
     fanim = function()
@@ -622,10 +636,14 @@ function make_fight()
   local function draw_fui()
     if not fanim then
       color(7)
-      spr(43,cam.x+25,cam.y+61)
-      print("withdraw",cam.x+34,cam.y+63)
-      spr(42,cam.x+46,cam.y+53)
-      print("dazzle",cam.x+55,cam.y+55)
+      if inventory.current_store_index >= 3 then
+        spr(43,cam.x+25,cam.y+61)
+        print("withdraw",cam.x+34,cam.y+63)
+      end
+      if inventory.current_store_index >= 2 then
+        spr(42,cam.x+46,cam.y+53)
+        print("dazzle",cam.x+55,cam.y+55)
+      end
       spr(44,cam.x+67,cam.y+61)
       print("advance",cam.x+76,cam.y+63)
 

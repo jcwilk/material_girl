@@ -14,7 +14,7 @@ function make_inventory()
   obj = {
     store_sprite_map = {41,39,40,38},
     hearts_count = 0,
-    current_store_index = 1
+    current_store_index = 5
   }
 
   obj.current_store = function()

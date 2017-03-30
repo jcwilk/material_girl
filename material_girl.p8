@@ -438,7 +438,7 @@ function make_inventory()
  obj = {
   store_sprite_map = {41,39,40,38},
   hearts_count = 0,
-  current_store_index = 1
+  current_store_index = 5
  }
 
  obj.current_store = function()
@@ -733,6 +733,18 @@ function make_fight()
    intro_slide = false
    enemy.walking=false
    fanim=false
+
+   queue_text(function()
+    reset_combat_cursor()
+    if inventory.current_store_index <= 4 then
+     color(12)
+     print "welcome, see how this fits"
+    else
+     color(14)
+     print "he's absolutely stunning. it's"
+     print "all been building up to this"
+    end
+   end)
   end)
  end
 
@@ -799,10 +811,9 @@ function make_fight()
    queue_text(function()
     color(11)
     print("you win! probably...")
-    print("i havne't gotten this far")
+    print("i haven't gotten this far")
     print("with the programming but")
     print("good job! :d")
-    print("(sorry haha)")
     delays.make(0).next(function()
      while true do
      end
@@ -813,6 +824,9 @@ function make_fight()
   local winwait=60
   local win_sprite_id = ({39,40,38,41,10})[inventory.current_store_index]
   local win_heart = sprites.make(win_sprite_id,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
+  win_heart.before_draw = function()
+   palt(0,false)
+  end
 
   local tweening = false
   fanim = function()
@@ -1134,10 +1148,14 @@ function make_fight()
  local function draw_fui()
   if not fanim then
    color(7)
-   spr(43,cam.x+25,cam.y+61)
-   print("withdraw",cam.x+34,cam.y+63)
-   spr(42,cam.x+46,cam.y+53)
-   print("dazzle",cam.x+55,cam.y+55)
+   if inventory.current_store_index >= 3 then
+    spr(43,cam.x+25,cam.y+61)
+    print("withdraw",cam.x+34,cam.y+63)
+   end
+   if inventory.current_store_index >= 2 then
+    spr(42,cam.x+46,cam.y+53)
+    print("dazzle",cam.x+55,cam.y+55)
+   end
    spr(44,cam.x+67,cam.y+61)
    print("advance",cam.x+76,cam.y+63)
 
@@ -1333,8 +1351,8 @@ make_enemy = function(player,attributes)
   closeness={
    high=function()
     color(14)
-    print("we draw apart")
-    print("but i still feel close to him")
+    print("just a little closer and he'll")
+    print("let me into his heart")
    end,
    mid=function()
     color(14)
@@ -1354,12 +1372,12 @@ make_enemy = function(player,attributes)
    end,
    mid=function()
     color(12)
-    print("you're rather fetching")
+    print("you're quite fetching but")
+    print("i still have reservations")
    end,
    low=function()
     color(12)
-    print("i'm sorry but")
-    print("i think i need space")
+    print("maybe we could just be friends?")
    end
   }
  }
@@ -1386,6 +1404,23 @@ make_enemy = function(player,attributes)
   return scale - .6*scale*(1-original)*(1-original)
  end
 
+ last_stat_map = {}
+ local function report_stat(stat)
+  local level
+  if obj[stat] < 0.4 then
+   level = 'low'
+  elseif obj[stat] < 0.8 then
+   level = 'mid'
+  else
+   level = 'high'
+  end
+
+  if last_stat_map[stat] != level then
+   last_stat_map[stat] = level
+   queue_text(stat_speech[stat][level])
+  end
+ end
+
  local function lower_stat(stat, multiplier)
   multiplier = multiplier or lower_multipliers[stat]()
   obj[stat]-= scaling_function(obj[stat],multiplier)
@@ -1393,13 +1428,7 @@ make_enemy = function(player,attributes)
    obj[stat] = 0
   end
   --
-  if obj[stat] < 0.33 then
-   queue_text(stat_speech[stat].low)
-  elseif obj[stat] < 0.66 then
-   queue_text(stat_speech[stat].mid)
-  else
-   queue_text(stat_speech[stat].high)
-  end
+  report_stat(stat)
  end
 
  local function raise_stat(stat, multiplier)
@@ -1408,6 +1437,8 @@ make_enemy = function(player,attributes)
   if obj[stat] > 0.9 then
    obj[stat] = 1
   end
+
+  report_stat(stat)
  end
 
  local function dazzle_check()
@@ -1502,7 +1533,7 @@ make_enemy = function(player,attributes)
    start = function()
     queue_text(function()
      color(12)
-     print "aint got nothin on this!"
+     print "i've had enough of this"
     end)
    end,
    middle = function()
