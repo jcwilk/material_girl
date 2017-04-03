@@ -41,7 +41,15 @@ make_enemy = function(player,attributes)
       end,
       low=function()
         color(12)
-        print("maybe we could just be friends?")
+        print("i'm sorry but you're not for me")
+      end
+    },
+    patience={
+      high=noop_f,
+      mid=noop_f,
+      low=function()
+        color(12)
+        print("you're really trying my patience")
       end
     }
   }
@@ -70,6 +78,9 @@ make_enemy = function(player,attributes)
     end,
     attraction=function()
       return .2
+    end,
+    patience=function()
+      return .4
     end
   }
 
@@ -82,7 +93,7 @@ make_enemy = function(player,attributes)
     local level
     if obj[stat] < 0.5 then
       level = 'low'
-    elseif obj[stat] < 0.8 then
+    elseif obj[stat] < 1 then
       level = 'mid'
     else
       level = 'high'
@@ -132,7 +143,7 @@ make_enemy = function(player,attributes)
 
   local function counterattack_check()
     obj.patience-= 1-obj.attraction
-    if obj.patience < 0 then
+    if obj.patience <= 0 then
       obj.patience+= 1
       return true
     end
@@ -328,15 +339,23 @@ make_enemy = function(player,attributes)
             end)
           end,
           middle = function()
-            queue_text(function()
-              color(14)
-              print("of my loveliness!")
-            end)
-            raise_stat('attraction')
+            if obj.attraction >= 1 then
+              queue_text(function()
+                color(14)
+                print("of my loveliness?")
+              end)
+              lower_stat('patience')
+            else
+              queue_text(function()
+                color(14)
+                print("of my loveliness!")
+              end)
+              raise_stat('attraction')
+              obj.patience = 1
+            end
+            attempt_counterattack()
           end
         }
-        obj.patience = 1
-        attempt_counterattack()
       else
         obj.current_action = {
           name = 'move',

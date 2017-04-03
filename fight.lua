@@ -450,6 +450,8 @@ function make_fight()
     local spinx = fighter.x
     --fighter.sprite_id = 1
 
+    local already_full = enemy_data.attraction >= 1
+
     fanim = noop_f
 
     local projectile_count = enemy_data.projectile_count
@@ -491,6 +493,10 @@ function make_fight()
       do_spin()
 
       local last_heart_promise
+      local push_offset = 4
+      if already_full then
+        push_offset = 0
+      end
 
       for i=1,projectile_count,1 do
         last_heart_promise = delays.make(i*5+5).next(function()
@@ -499,29 +505,35 @@ function make_fight()
             inventory.remap_hearts()
           end
           h.centered = true
-          return tweens.make(h,'x',enemy_data.base_x+4*i,20,'cubic')
-        end).next(function(h)
-          enemy.x+=4
-          enemy.sprite_id = 6
-          h.z-= 60
-          tweens.make(h,'x',enemy.x+20,5)
-          return tweens.make(h,'scale',4,5)
-        end).next(function(h)
+          return tweens.make(h,'x',enemy_data.base_x+push_offset*i,20,'cubic')
+        end)
+        if not already_full then
+          last_heart_promise = last_heart_promise.next(function(h)
+            enemy.x+=4
+            enemy.sprite_id = 6
+            h.z-= 60
+            tweens.make(h,'x',enemy.x+20,5)
+            return tweens.make(h,'scale',4,5)
+          end)
+        end
+        last_heart_promise = last_heart_promise.next(function(h)
           h.kill()
         end)
       end
 
-      last_heart_promise = last_heart_promise.next(function()
-        return delays.make(5)
-      end).next(function()
-        enemy.walking=true
-        enemy.walking_scale=8
-        enemy.sprite_id=4
-        return tweens.make(enemy,'x',enemy_data.base_x,8)
-      end).next(function()
-        enemy.walking=false
-        enemy.x = enemy_data.base_x
-      end)
+      if not already_full then
+        last_heart_promise = last_heart_promise.next(function()
+          return delays.make(5)
+        end).next(function()
+          enemy.walking=true
+          enemy.walking_scale=8
+          enemy.sprite_id=4
+          return tweens.make(enemy,'x',enemy_data.base_x,8)
+        end).next(function()
+          enemy.walking=false
+          enemy.x = enemy_data.base_x
+        end)
+      end
 
       promises.all({fighter_promise,last_heart_promise}).next(function()
         fanim=false
@@ -679,20 +691,21 @@ function make_fight()
     end
   end
 
-  local function draw_stat(percentage, left_x, top_y, color)
+  local function draw_stat(percentage, top_y, color)
+    left_x = cam.x
     of_twenty = flr(max(percentage,0,1)*20+0.5)
-    line(20-of_twenty,top_y,left_x+20,top_y,color)
+    line(20-of_twenty+left_x,top_y,left_x+20,top_y,color)
   end
 
   local highest_cpu = 0
   local function draw_enemy_stats()
-    draw_stat(enemy_data.closeness,0,9,8)
-    draw_stat(enemy_data.attraction,0,10,9)
-    draw_stat(enemy_data.patience,0,11,10)
-    draw_stat(stat(0)/1024,0,12,11)
-    draw_stat(stat(1),0,13,12)
+    draw_stat(enemy_data.closeness,9,8)
+    draw_stat(enemy_data.attraction,10,9)
+    draw_stat(enemy_data.patience,11,10)
+    draw_stat(stat(0)/1024,12,11)
+    draw_stat(stat(1),13,12)
     highest_cpu = max(highest_cpu,stat(1))
-    draw_stat(highest_cpu,0,14,13)
+    draw_stat(highest_cpu,14,13)
   end
 
   local function draw_fight()

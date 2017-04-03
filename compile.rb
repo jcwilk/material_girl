@@ -53,7 +53,7 @@ def compile_file(filename)
 end
 
 Dir["./*"].each do |filename|
-  compile_file(filename)
+  compile_file(filename) if File.file?(filename)
 end
 
 
