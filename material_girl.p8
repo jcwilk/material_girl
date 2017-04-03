@@ -63,7 +63,8 @@ end
 -- end
 
 
-
+-- because we generally keep things sorted so this will only be adding a few things at a time
+-- so efficiency is good enough and it doesn't take many tokens
 function bubble_sort(t, field, default)
  if #t > 1 then
   local do_pass = function()
@@ -329,7 +330,7 @@ tweens = {
   circular = function(k) -- this might technically be "sine"
    return 1-cos(k/4)
   end,
-  bounce_out = function(k) -- from https://github.com/photonstorm/phaser/blob/v2.4.6/src/tween/easing.js
+  bounce_out = function(k) -- from https://github.com/photonstorm/phaser/blob/v2.4.6/src/tween/Easing.js
    if k < ( 1 / 2.75 ) then
     return(7.5625 * k * k)
    elseif k < ( 2 / 2.75 ) then
@@ -423,7 +424,7 @@ tweens = {
 -- end ext
 
 -- start ext inventory.lua
-function make_inventory()
+function make_inventory(is_for_enemy)
  local owned_hearts = {}
  local obj
  local choose = function(map,min_index)
@@ -438,7 +439,7 @@ function make_inventory()
  obj = {
   store_sprite_map = {41,39,40,38},
   hearts_count = 0,
-  current_store_index = 5
+  current_store_index = 1
  }
 
  obj.current_store = function()
@@ -451,7 +452,15 @@ function make_inventory()
  end
 
  obj.add_heart = function()
-  local heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})
+  local heart
+  if is_for_enemy then
+   heart = sprites.make(10,{x=123-9*obj.hearts_count,y=-12,z=200})
+   heart.before_draw = function()
+    pal(8,13)
+   end
+  else
+   heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})
+  end
   heart.relative_to_cam=true
   heart.centered=true
   tweens.make(heart,'y',5,30,tweens.easings.bounce_out)
@@ -514,7 +523,7 @@ end
 -- depends on:
 -- zspr - sprite helper function
 ----
--- fight factory - call this to generate a new fight
+-- Fight factory - call this to generate a new fight
 ----
 -- starts as inactive, calls to update/draw will noop
 -- start() - activates the fight
@@ -602,14 +611,16 @@ function make_fight()
    tweens.make(fighter,'scale_x',3.5,3).next(function()
     return tweens.make(fighter,'scale_x',4,3)
    end)
-   tweens.make(fighter,'scale_y',5,3).next(function()
+
+   local smooshing = tweens.make(fighter,'scale_y',5,3).next(function()
     return tweens.make(fighter,'scale_y',3.5,3,'cubic',{
      ease_out=true
     })
    end).next(function()
     return tweens.make(fighter,'scale_y',4,4,'cubic')
    end)
-   return tweens.make(fighter,'y',fighter.y-10,5,'quadratic',{
+
+   local jumping = tweens.make(fighter,'y',fighter.y-10,5,'quadratic',{
     ease_out=true
    }).next(function()
     fighter.sprite_id = jump_sprites[2]
@@ -623,9 +634,11 @@ function make_fight()
     fighter.sprite_id = 0
     tweens.make(fighter,'scale_x',4,4,'quadratic')
     return tweens.make(fighter,'scale_y',4,4,'quadratic')
-   end).next(function()
+   end)
+
+   return promises.all({jumping,smooshing}).next(function()
     fighter.scale_x = nil
-    fighter_scale_y = nil
+    fighter.scale_y = nil
     fighter.anchor_y= nil
     fighter.y-=16
    end)
@@ -741,8 +754,8 @@ function make_fight()
      print "welcome, see how this fits"
     else
      color(14)
-     print "he's absolutely stunning..."
-     print "it's all been building up to this"
+     print "he's absolutely stunning. it's"
+     print "all been building up to this"
     end
    end)
   end)
@@ -790,19 +803,19 @@ function make_fight()
   enemy.flip = true
   enemy.walking=true
   tweens.make(enemy,'x',cam.x+128+16,30,'cubic').on_complete = function()
-    enemy_data.current_action.middle()
-    game_over = true
-    fighter.before_draw = function()
-      pal(7,14)
-      pal(11,14)
-      pal(10,14)
-      pal(4,14)
-      pal(12,14)
-      pal(15,2)
-      pal(14,2)
-      pal(3,2)
-      pal(8,2)
-    end
+   enemy_data.current_action.middle()
+   game_over = true
+   fighter.before_draw = function()
+    pal(7,0)
+    pal(11,0)
+    pal(10,0)
+    pal(4,0)
+    pal(12,0)
+    pal(15,0)
+    pal(14,0)
+    pal(3,0)
+    pal(8,0)
+   end
   end
  end
 
@@ -810,11 +823,10 @@ function make_fight()
   if inventory.current_store_index > 4 then
    queue_text(function()
     color(11)
-    print("you win! probably...")
-    print("i havne't gotten this far")
+    print("you win! <3 <3 <3")
+    print("i haven't gotten this far")
     print("with the programming but")
     print("good job! :d")
-    print("(sorry haha)")
     delays.make(0).next(function()
      while true do
      end
@@ -825,8 +837,10 @@ function make_fight()
   local winwait=60
   local win_sprite_id = ({39,40,38,41,10})[inventory.current_store_index]
   local win_heart = sprites.make(win_sprite_id,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
-  win_heart.before_draw = function()
-   palt(0,false)
+  if inventory.current_store_index < 5 then
+   win_heart.before_draw = function()
+    palt(0,false)
+   end
   end
 
   local tweening = false
@@ -851,19 +865,19 @@ function make_fight()
     win_heart.z = 120
     tweens.make(win_heart,'x',fighter.x,12,'circular')
    end
-   local slide_down = tweens.make(win_heart,'y',fighter.y+20,12,'circular')
+   local slide_down = tweens.make(win_heart,'y',fighter.y+18,12,'circular')
    slide_down.ease_out = true
    slide_down.on_complete = function()
     tweens.make(win_heart,'y',fighter.y,12,'circular')
    end
-   tweens.make(win_heart,'scale',1,24,'quadratic').on_complete = function()
+   tweens.make(win_heart,'scale',1,24,'quadratic').next(function()
     win_heart.kill()
     fighter.sprite_id = 2
-    local jump = tweens.make(fighter,'y',fighter.y-5,14,'cubic')
-    jump.ease_out = true
-    jump.on_complete = exit_battle
     inventory.increment_store()
-   end
+    return tweens.make(fighter,'y',fighter.y-5,20,'quadratic',{ease_out = true})
+   end).next(function()
+    return delays.make(10)
+   end).next(exit_battle)
   end
  end
 
@@ -1077,7 +1091,7 @@ function make_fight()
  end
 
  local function detect_keys()
-  if btn(0) and not btn(1) and not btn(2) then
+  if inventory.current_store_index >= 3 and btn(0) and not btn(1) and not btn(2) then
    press_key(43,25,61)
    enemy_data.withdraw()
    return true
@@ -1088,7 +1102,7 @@ function make_fight()
    return true
   end
   just_jumped=false
-  if btn(2) and not btn(0) and not btn(1) then
+  if inventory.current_store_index >= 2 and btn(2) and not btn(0) and not btn(1) then
    press_key(42,46,53)
    enemy_data.dazzle()
    return true
@@ -1144,7 +1158,7 @@ function make_fight()
  end
 
  -----------------------
- --drawing fighting code
+ --Drawing fighting code
  -----------------------
  local function draw_fui()
   if not fanim then
@@ -1347,6 +1361,7 @@ make_enemy = function(player,attributes)
  local action_index = 1
  local obj
  local deferred_action = nil
+ local enemy_inv
 
  local stat_speech = {
   closeness={
@@ -1383,12 +1398,21 @@ make_enemy = function(player,attributes)
   }
  }
 
+ local function queue_victory_text()
+  queue_text(function()
+   color(12)
+   print("your charm leaves me powerless")
+   print("consider it yours")
+   print("and remember me")
+  end)
+ end
+
  local raise_multipliers = {
   closeness=function()
    return .25
   end,
   attraction=function()
-   return (4+inventory.hearts_count)/15 --todo
+   return (4+inventory.hearts_count)/15 --TODO
   end
  }
 
@@ -1408,7 +1432,7 @@ make_enemy = function(player,attributes)
  last_stat_map = {}
  local function report_stat(stat)
   local level
-  if obj[stat] < 0.4 then
+  if obj[stat] < 0.5 then
    level = 'low'
   elseif obj[stat] < 0.8 then
    level = 'mid'
@@ -1443,7 +1467,7 @@ make_enemy = function(player,attributes)
  end
 
  local function dazzle_check()
-  return obj.closeness < 0.6
+  return obj.closeness < 0.5
  end
 
  local function withdraw_check()
@@ -1650,11 +1674,11 @@ make_enemy = function(player,attributes)
       end)
      end,
      middle = function()
-      raise_stat('attraction')
       queue_text(function()
        color(14)
        print("of my loveliness!")
       end)
+      raise_stat('attraction')
      end
     }
     obj.patience = 1
@@ -1713,11 +1737,16 @@ make_enemy = function(player,attributes)
        color(14)
        print "mwa! :*"
       end)
-      lower_stat('attraction')
       obj.hp-=1
-      if obj.hp <= 0 then --todo: if all 4 final items, he recovers
+      if enemy_inv then
+       enemy_inv.remove_heart()
+      end
+      if obj.hp <= 0 then
        obj.current_action.win = true
        deferred_action = win
+       queue_victory_text()
+      else
+       lower_stat('attraction')
       end
      end
     }
@@ -1782,10 +1811,25 @@ make_enemy = function(player,attributes)
     end
    end
   end
-  for i=1,4,1 do
+  for i=1,4 do
    inventory.add_heart()
   end
   obj.projectile_count = inventory.hearts_count
+ end
+
+ if inventory.current_store_index == 5 then
+  queue_victory_text = function()
+   queue_text(function()
+    color(12)
+    print "no one will ever compare"
+    print "let me be forever yours"
+   end)
+  end
+  enemy_inv = make_inventory(true)
+  obj.hp=4
+  for i=1,obj.hp do
+   enemy_inv.add_heart()
+  end
  end
 
  return obj

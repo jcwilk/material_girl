@@ -9,6 +9,7 @@ make_enemy = function(player,attributes)
   local action_index = 1
   local obj
   local deferred_action = nil
+  local enemy_inv
 
   local stat_speech = {
     closeness={
@@ -45,6 +46,15 @@ make_enemy = function(player,attributes)
     }
   }
 
+  local function queue_victory_text()
+    queue_text(function()
+      color(12)
+      print("your charm leaves me powerless")
+      print("consider it yours")
+      print("and remember me")
+    end)
+  end
+
   local raise_multipliers = {
     closeness=function()
       return .25
@@ -70,7 +80,7 @@ make_enemy = function(player,attributes)
   last_stat_map = {}
   local function report_stat(stat)
     local level
-    if obj[stat] < 0.4 then
+    if obj[stat] < 0.5 then
       level = 'low'
     elseif obj[stat] < 0.8 then
       level = 'mid'
@@ -105,7 +115,7 @@ make_enemy = function(player,attributes)
   end
 
   local function dazzle_check()
-    return obj.closeness < 0.6
+    return obj.closeness < 0.5
   end
 
   local function withdraw_check()
@@ -312,11 +322,11 @@ make_enemy = function(player,attributes)
             end)
           end,
           middle = function()
-            raise_stat('attraction')
             queue_text(function()
               color(14)
               print("of my loveliness!")
             end)
+            raise_stat('attraction')
           end
         }
         obj.patience = 1
@@ -375,11 +385,16 @@ make_enemy = function(player,attributes)
               color(14)
               print "mwa! :*"
             end)
-            lower_stat('attraction')
             obj.hp-=1
-            if obj.hp <= 0 then --TODO: if all 4 final items, he recovers
+            if enemy_inv then
+              enemy_inv.remove_heart()
+            end
+            if obj.hp <= 0 then
               obj.current_action.win = true
               deferred_action = win
+              queue_victory_text()
+            else
+              lower_stat('attraction')
             end
           end
         }
@@ -444,10 +459,25 @@ make_enemy = function(player,attributes)
         end
       end
     end
-    for i=1,4,1 do
+    for i=1,4 do
       inventory.add_heart()
     end
     obj.projectile_count = inventory.hearts_count
+  end
+
+  if inventory.current_store_index == 5 then
+    queue_victory_text = function()
+      queue_text(function()
+        color(12)
+        print "no one will ever compare"
+        print "let me be forever yours"
+      end)
+    end
+    enemy_inv = make_inventory(true)
+    obj.hp=4
+    for i=1,obj.hp do
+      enemy_inv.add_heart()
+    end
   end
 
   return obj

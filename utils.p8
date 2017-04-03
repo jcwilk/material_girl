@@ -60,7 +60,8 @@ end
 -- end
 
 
-
+-- because we generally keep things sorted so this will only be adding a few things at a time
+-- so efficiency is good enough and it doesn't take many tokens
 function bubble_sort(t, field, default)
   if #t > 1 then
     local do_pass = function()

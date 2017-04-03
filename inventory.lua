@@ -1,5 +1,5 @@
 -- START LIB
-function make_inventory()
+function make_inventory(is_for_enemy)
   local owned_hearts = {}
   local obj
   local choose = function(map,min_index)
@@ -14,7 +14,7 @@ function make_inventory()
   obj = {
     store_sprite_map = {41,39,40,38},
     hearts_count = 0,
-    current_store_index = 5
+    current_store_index = 1
   }
 
   obj.current_store = function()
@@ -27,7 +27,15 @@ function make_inventory()
   end
 
   obj.add_heart = function()
-    local heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})
+    local heart
+    if is_for_enemy then
+      heart = sprites.make(10,{x=123-9*obj.hearts_count,y=-12,z=200})
+      heart.before_draw = function()
+        pal(8,13)
+      end
+    else
+      heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})
+    end
     heart.relative_to_cam=true
     heart.centered=true
     tweens.make(heart,'y',5,30,tweens.easings.bounce_out)

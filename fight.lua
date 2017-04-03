@@ -90,14 +90,16 @@ function make_fight()
       tweens.make(fighter,'scale_x',3.5,3).next(function()
         return tweens.make(fighter,'scale_x',4,3)
       end)
-      tweens.make(fighter,'scale_y',5,3).next(function()
+
+      local smooshing = tweens.make(fighter,'scale_y',5,3).next(function()
         return tweens.make(fighter,'scale_y',3.5,3,'cubic',{
           ease_out=true
         })
       end).next(function()
         return tweens.make(fighter,'scale_y',4,4,'cubic')
       end)
-      return tweens.make(fighter,'y',fighter.y-10,5,'quadratic',{
+
+      local jumping = tweens.make(fighter,'y',fighter.y-10,5,'quadratic',{
         ease_out=true
       }).next(function()
         fighter.sprite_id = jump_sprites[2]
@@ -111,9 +113,11 @@ function make_fight()
         fighter.sprite_id = 0
         tweens.make(fighter,'scale_x',4,4,'quadratic')
         return tweens.make(fighter,'scale_y',4,4,'quadratic')
-      end).next(function()
+      end)
+
+      return promises.all({jumping,smooshing}).next(function()
         fighter.scale_x = nil
-        fighter_scale_y = nil
+        fighter.scale_y = nil
         fighter.anchor_y= nil
         fighter.y-=16
       end)
@@ -278,19 +282,19 @@ function make_fight()
     enemy.flip = true
     enemy.walking=true
     tweens.make(enemy,'x',cam.x+128+16,30,'cubic').on_complete = function()
-        enemy_data.current_action.middle()
-        game_over = true
-        fighter.before_draw = function()
-            pal(7,14)
-            pal(11,14)
-            pal(10,14)
-            pal(4,14)
-            pal(12,14)
-            pal(15,2)
-            pal(14,2)
-            pal(3,2)
-            pal(8,2)
-        end
+      enemy_data.current_action.middle()
+      game_over = true
+      fighter.before_draw = function()
+        pal(7,0)
+        pal(11,0)
+        pal(10,0)
+        pal(4,0)
+        pal(12,0)
+        pal(15,0)
+        pal(14,0)
+        pal(3,0)
+        pal(8,0)
+      end
     end
   end
 
@@ -298,7 +302,7 @@ function make_fight()
     if inventory.current_store_index > 4 then
       queue_text(function()
         color(11)
-        print("you win! probably...")
+        print("you win! <3 <3 <3")
         print("i haven't gotten this far")
         print("with the programming but")
         print("good job! :d")
@@ -312,8 +316,10 @@ function make_fight()
     local winwait=60
     local win_sprite_id = ({39,40,38,41,10})[inventory.current_store_index]
     local win_heart = sprites.make(win_sprite_id,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
-    win_heart.before_draw = function()
-      palt(0,false)
+    if inventory.current_store_index < 5 then
+      win_heart.before_draw = function()
+        palt(0,false)
+      end
     end
 
     local tweening = false
@@ -338,19 +344,19 @@ function make_fight()
         win_heart.z = 120
         tweens.make(win_heart,'x',fighter.x,12,'circular')
       end
-      local slide_down = tweens.make(win_heart,'y',fighter.y+20,12,'circular')
+      local slide_down = tweens.make(win_heart,'y',fighter.y+18,12,'circular')
       slide_down.ease_out = true
       slide_down.on_complete = function()
         tweens.make(win_heart,'y',fighter.y,12,'circular')
       end
-      tweens.make(win_heart,'scale',1,24,'quadratic').on_complete = function()
+      tweens.make(win_heart,'scale',1,24,'quadratic').next(function()
         win_heart.kill()
         fighter.sprite_id = 2
-        local jump = tweens.make(fighter,'y',fighter.y-5,14,'cubic')
-        jump.ease_out = true
-        jump.on_complete = exit_battle
         inventory.increment_store()
-      end
+        return tweens.make(fighter,'y',fighter.y-5,20,'quadratic',{ease_out = true})
+      end).next(function()
+        return delays.make(10)
+      end).next(exit_battle)
     end
   end
 
@@ -564,7 +570,7 @@ function make_fight()
   end
 
   local function detect_keys()
-    if btn(0) and not btn(1) and not btn(2) then
+    if inventory.current_store_index >= 3 and btn(0) and not btn(1) and not btn(2) then
       press_key(43,25,61)
       enemy_data.withdraw()
       return true
@@ -575,7 +581,7 @@ function make_fight()
       return true
     end
     just_jumped=false
-    if btn(2) and not btn(0) and not btn(1) then
+    if inventory.current_store_index >= 2 and btn(2) and not btn(0) and not btn(1) then
       press_key(42,46,53)
       enemy_data.dazzle()
       return true
