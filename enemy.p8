@@ -49,7 +49,7 @@ make_enemy = function(player,attributes)
       mid=noop_f,
       low=function()
         color(12)
-        print("you're really trying my patience")
+        print("your antics bore me")
       end
     }
   }
