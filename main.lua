@@ -117,7 +117,7 @@ function exit_door_y(x,y)
   end
 end
 
-function end_walkabout()
+function reset_doors()
   door_data = nil
   doors.each(function(d)
     d.kill()
@@ -129,6 +129,10 @@ function end_walkabout()
     end)
     gate = nil
   end
+end
+
+function end_walkabout()
+
   sale.counter=0
 end
 

@@ -338,8 +338,7 @@ sprites = {
         y = flr(y+0.5)
       end
       if s.walking then
-        local frame_index = ((flr(x)+flr(y)) % (s.walking_scale * #s.walking_frames))/s.walking_scale
-        --local frame_index = (flr(x)+flr(y)) % #s.walking_frames
+        local frame_index = ((x+y)/s.walking_scale) % #s.walking_frames
         sprite_id = s.walking_frames[flr(frame_index)+1]
       end
 

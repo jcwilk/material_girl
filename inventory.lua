@@ -31,7 +31,8 @@ function make_inventory(is_for_enemy)
     if is_for_enemy then
       heart = sprites.make(10,{x=123-9*obj.hearts_count,y=-12,z=200})
       heart.before_draw = function()
-        pal(8,13)
+        pal(8,5)
+        --pal(1,5)
       end
     else
       heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})

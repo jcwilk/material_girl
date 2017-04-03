@@ -274,6 +274,12 @@ make_enemy = function(player,attributes)
     closeness = 0.2,
     attraction = .3,
     base_y = 26,
+    kill = function()
+      if enemy_inv then
+        enemy_inv.clear_hearts()
+      end
+      sprite.kill()
+    end,
     advance_action = function()
       local todo
       if deferred_action then
@@ -345,16 +351,16 @@ make_enemy = function(player,attributes)
             start = function()
             end,
             middle = function()
-              lower_stat('attraction')
               queue_text(function()
                 color(14)
                 print("we've grown too close")
                 print("his eyes no longer sparkle")
               end)
+              lower_stat('attraction')
             end
           }
+          attempt_counterattack()
         end
-        attempt_counterattack()
       end
     end,
     advance = function()
