@@ -1,141 +1,172 @@
-﻿<html>
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <title>PICO-8 Cartridge</title>
-        <meta name="description" content="">
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title>Material Girl</title>
 
-<STYLE TYPE="text/css">
-<!--
+    <!-- Bootstrap -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link href="./web_assets/darkly.min.css" rel="stylesheet">
 
-canvas#canvas { width: 512px; height: 512px; }
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <STYLE TYPE="text/css">
+		<!--
 
-.pico8_el {
-	float:left;
-	width:92px;
-	display:inline-block; 
-  	margin: 1px;
-	padding: 4px;
-	text-align: center;
-	color:#fff;
-	background-color:#777;
-	font-family : verdana;
-	font-size: 9pt;
-	cursor: pointer;
-	cursor: hand;
-}
-.pico8_el a{
-	text-decoration: none;
-	color:#fff;
-}
+		canvas#canvas { width: 512px; height: 512px; }
 
-.pico8_el:hover{
-	background-color:#aaa;
-}
-
-.pico8_el:link{
-	background-color:#aaa;
-}
-
-canvas{
-    image-rendering: optimizeSpeed;
-    image-rendering: -moz-crisp-edges;
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: optimize-contrast;
-    image-rendering: pixelated;
-    -ms-interpolation-mode: nearest-neighbor;
-    border: 0px
-}
-
--->
-</STYLE>
-    
-</head>
-
-<body bgcolor=#303030>
-
-	<br><br><br>
-
-	<center><div style="width:512px;">
-
-	<canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
-
-	<script type="text/javascript">
-		var canvas = document.getElementById("canvas");
-		canvas.width = window.innerWidth;
-		canvas.height = window.innerHeight;
-
-		// show Emscripten environment where the canvas is
-		// arguments are passed to PICO-8
-		
-		var Module = {};
-		Module.canvas = canvas;
-		
-		/*
-			// When pico8_buttons is defined, PICO-8 takes each int to be a live bitfield
-			// representing the state of each player's buttons
-			
-			var pico8_buttons = [0, 0, 0, 0, 0, 0, 0, 0]; // max 8 players
-			pico8_buttons[0] = 2 | 16; // example: player 0, RIGHT and Z held down
-			
-			// when pico8_gpio is defined, reading and writing to gpio pins will
-			// read and write to these values
-			var pico8_gpio = new Array(128);
-		*/
-	</script>
-
-	<script async type="text/javascript" src="index.js"></script>
-	  
-	<script>
-		// key blocker. prevent cursor keys from scrolling page while playing cart.
-		
-		function onKeyDown_blocker(event) {
-			event = event || window.event;
-			var o = document.activeElement;
-			if (!o || o == document.body || o.tagName == "canvas")
-			{
-				if ([32, 37, 38, 39, 40].indexOf(event.keyCode) > -1)
-				{
-					if (event.preventDefault) event.preventDefault();
-				}
-			}
+		canvas{
+		    image-rendering: optimizeSpeed;
+		    image-rendering: -moz-crisp-edges;
+		    image-rendering: -webkit-optimize-contrast;
+		    image-rendering: optimize-contrast;
+		    image-rendering: pixelated;
+		    -ms-interpolation-mode: nearest-neighbor;
+		    border: 0px
 		}
 
-		document.addEventListener('keydown', onKeyDown_blocker, false);
+		-->
+	</STYLE>
+  </head>
+  <body>
+  	<nav class="navbar navbar-default">
+		  <div class="container-fluid">
+		    <div class="navbar-header">
+		      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+		        <span class="sr-only">Toggle navigation</span>
+		        <span class="icon-bar"></span>
+		        <span class="icon-bar"></span>
+		        <span class="icon-bar"></span>
+		      </button>
+		      <a class="navbar-brand" href="#">Material Girl</a>
+		    </div>
 
-	</script>
-        
-	<br>
+		    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+		      <ul class="nav navbar-nav">
+		        <li class="active"><a href="#">Game <span class="sr-only">(current)</span></a></li>
+		        <li><a href="http://github.com/jcwilk/material_girl">Source</a></li>
+		      </ul>
+		    </div>
+		  </div>
+		</nav>
 
-	<div class=pico8_el onclick="Module.pico8Reset();">
+		<div class="container">
+	    <div class="row">
+	      <div class="col-md-6">
+			  	<!-- START PICO JUNK/////////////////////////////////////// -->
+	       	<div style="width:512px; margin:auto">
+	       		<center>
+							<canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+						</center>
 
-	<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAaklEQVR4Ae2dOwoAMQhE15A+rfc/3bZ7AlMnQfywCkKsfcgMM9ZP+QHtIn0vLeBAFduiFdQ/0DmvtR5LXJ6CPSXe2ZXcFNlTxFbemKrbZPs35XogeS9xeQr+anT6LzoOwEDwZJ7jwhXUnwkTTiDQ2Ja34AAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Reset" width=12 height=	12/>
+						<script type="text/javascript">
+							var canvas = document.getElementById("canvas");
+							canvas.width = window.innerWidth;
+							canvas.height = window.innerHeight;
 
-	Reset</div>
+							// show Emscripten environment where the canvas is
+							// arguments are passed to PICO-8
 
-	<div class=pico8_el onclick="Module.pico8TogglePaused();">
+							var Module = {};
+							Module.canvas = canvas;
 
-	<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAPUlEQVR4Ae3doQ0AIAxEUWABLPtPh2WCq26DwFSU/JPNT166QSu/Hg86W9dwLte+diP7AwAAAAAAgD+A+jM2ZAgo84I0PgAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Pause" width=12 height=12/>
+							/*
+								// When pico8_buttons is defined, PICO-8 takes each int to be a live bitfield
+								// representing the state of each player's buttons
 
-	Pause</div>
-	<div class=pico8_el onclick="Module.requestFullScreen(true, false);">
-	<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAaklEQVR4Ae2dsQ1AIQhExfze1v2ns3UCrfgFhmgUUAoGgHscp21wX9BqaZoDojbB96OkDJKNcTN2BHTyYNYmoT2BlPL7BKgcPfHjAVXKKadkHOn9K1r16N0czN6a95N8mnA7Aq2fTZ3Af3UKmCSMazL8HwAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Fullscreen" width=12 height=12/>
+								var pico8_buttons = [0, 0, 0, 0, 0, 0, 0, 0]; // max 8 players
+								pico8_buttons[0] = 2 | 16; // example: player 0, RIGHT and Z held down
 
-	Fullscreen</div>
-	<div class=pico8_el onclick="Module.pico8ToggleSound();">
-	<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAXklEQVR4Ae2doQ4AIQxD4YLH8v9fh+ULhjpxxSwLg2uyapr1JRu1iV5Z+1BGl4+xNpX38SYo2uRvYiT5LwEmt+ocgXVLrhPEgBiw8Q5w7/kueSkK+D2tJO4E/I3GrwkqQCBabEj/4QAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Toggle Sound" width=12 height=12/>
-	
-	Sound</div>
-	<div class=pico8_el ><a target="_new" href="http://www.lexaloffle.com/bbs/?cat=7&sub=2">
-	<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAlElEQVR4Ae2dMQ5FQBCGh6jcwAkkateg3DiAa+iQUGqVKi95FQfAJRQOoHeBUf8JyQqKjZ1uMzuz2e/LTE3KhyF7kSlgLOykas23f6D+A9Yp84aAOYU15pcJnfji0Il2ID8HzC4y38ZrnfIBGxeRoR3c3EWrACdsV5BOsx7OSRnrOXh4F5HzA6bevwUn8wlz7eCDsQM99B3ks0s/4QAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="More Carts" width=12 height=12/>
+								// when pico8_gpio is defined, reading and writing to gpio pins will
+								// read and write to these values
+								var pico8_gpio = new Array(128);
+							*/
+						</script>
 
-	Carts</a></div>
+						<script async type="text/javascript" src="./web_assets/index.js"></script>
 
-	<br>	
+						<script>
+							// key blocker. prevent cursor keys from scrolling page while playing cart.
 
-	</div></center>
-	<br><br>
+							function onKeyDown_blocker(event) {
+								event = event || window.event;
+								var o = document.activeElement;
+								if (!o || o == document.body || o.tagName == "canvas")
+								{
+									if ([32, 37, 38, 39, 40].indexOf(event.keyCode) > -1)
+									{
+										if (event.preventDefault) event.preventDefault();
+									}
+								}
+							}
 
-</body></html>
+							document.addEventListener('keydown', onKeyDown_blocker, false);
+
+						</script>
+
+						<div class="row text-center">
+							<div class="col-md-12">
+								<p class="bs-component">
+									<a href="javascript:void(0)" class="btn btn-default" onclick="Module.pico8Reset();">
+
+										<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAaklEQVR4Ae2dOwoAMQhE15A+rfc/3bZ7AlMnQfywCkKsfcgMM9ZP+QHtIn0vLeBAFduiFdQ/0DmvtR5LXJ6CPSXe2ZXcFNlTxFbemKrbZPs35XogeS9xeQr+anT6LzoOwEDwZJ7jwhXUnwkTTiDQ2Ja34AAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Reset" width=12 height=	12/>
+
+										Reset
+									</a>
+
+									<a href="javascript:void(0)" class="btn btn-default" onclick="Module.pico8TogglePaused();">
+										<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAPUlEQVR4Ae3doQ0AIAxEUWABLPtPh2WCq26DwFSU/JPNT166QSu/Hg86W9dwLte+diP7AwAAAAAAgD+A+jM2ZAgo84I0PgAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Pause" width=12 height=12/>
+
+										Pause
+									</a>
+
+									<a href="javascript:void(0)" class="btn btn-default" onclick="Module.requestFullScreen(true, false);">
+										<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAaklEQVR4Ae2dsQ1AIQhExfze1v2ns3UCrfgFhmgUUAoGgHscp21wX9BqaZoDojbB96OkDJKNcTN2BHTyYNYmoT2BlPL7BKgcPfHjAVXKKadkHOn9K1r16N0czN6a95N8mnA7Aq2fTZ3Af3UKmCSMazL8HwAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Fullscreen" width=12 height=12/>
+
+										Fullscreen
+									</a>
+									<a href="javascript:void(0)" class="btn btn-default" onclick="Module.pico8ToggleSound();">
+										<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAXklEQVR4Ae2doQ4AIQxD4YLH8v9fh+ULhjpxxSwLg2uyapr1JRu1iV5Z+1BGl4+xNpX38SYo2uRvYiT5LwEmt+ocgXVLrhPEgBiw8Q5w7/kueSkK+D2tJO4E/I3GrwkqQCBabEj/4QAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Toggle Sound" width=12 height=12/>
+
+										Sound
+									</a>
+								</p>
+							</div>
+						</div>
+					</div>
+					<!-- END PICO JUNK/////////////////////////////////////// -->
+				</div>
+				<div class=col-lg-6>
+					<div class="panel panel-primary">
+					  <div class="panel-heading">
+					    <h3 class="panel-title">Instructions</h3>
+					  </div>
+					  <div class="panel-body">
+					  	<p>
+					  		Simply use the arrow keys.
+					  	</p>
+					    <p>
+					    	It's recommended to use Fullscreen for the best experience.
+					    </p>
+					  </div>
+					</div>
+				</div>
+			</div>
+		</div>
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+  </body>
+</html>
+
+
 
 
