@@ -217,25 +217,29 @@ td.arrow {
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
     <script>
-    	$(document).ready(function(){
-    		$(".arrow").bind('mousedown touchstart', function(e) {
-    			switch(e.target.id) {
-    				case 'left-arrow':
-    					pico8_buttons=[1];
-    					break
-    				case 'right-arrow':
-    					pico8_buttons=[2];
-    					break
-    				case 'up-arrow':
-    					pico8_buttons=[4];
-    					break
-    				case 'down-arrow':
-    					pico8_buttons=[8];
+    	var id_to_bit = function(id){
+    		switch(id) {
+  				case 'left-arrow':
+  					return 1
+  				case 'right-arrow':
+  					return 2
+  				case 'up-arrow':
+  					return 4
+  				case 'down-arrow':
+  					return 8
 
-    			}
+  			}
+    	}
+    	$(document).ready(function(){
+    		pico8_buttons = [0]
+
+    		$(".arrow").bind('mousedown touchstart', function(e) {
+    			var bit = id_to_bit(e.target.id);
+    			pico8_buttons[0] |= bit;
     		})
     		$(".arrow").bind('mouseup touchstop', function(e) {
-    			pico8_buttons=[]
+    			var bit = id_to_bit(e.target.id);
+    			pico8_buttons[0] &= ~bit
     		})
     	});
     </script>
