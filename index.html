@@ -217,29 +217,40 @@ td.arrow {
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
     <script>
-    	var id_to_bit = function(id){
-    		switch(id) {
-  				case 'left-arrow':
-  					return 1
-  				case 'right-arrow':
-  					return 2
-  				case 'up-arrow':
-  					return 4
-  				case 'down-arrow':
-  					return 8
-
-  			}
-    	}
     	$(document).ready(function(){
     		pico8_buttons = [0]
 
-    		$(".arrow").bind('mousedown touchstart', function(e) {
-    			var bit = id_to_bit(e.target.id);
+    		var id_to_bit = function(id){
+	    		switch(id) {
+	  				case 'left-arrow':
+	  					return 1
+	  				case 'right-arrow':
+	  					return 2
+	  				case 'up-arrow':
+	  					return 4
+	  				case 'down-arrow':
+	  					return 8
+
+	  			}
+	    	}
+
+	    	var press = function(id){
+	    		var bit = id_to_bit(id);
     			pico8_buttons[0] |= bit;
+	    	}
+
+    		$(".arrow").bind('mousedown', function(e) {
+    			press(e.target.id);
     		})
-    		$(".arrow").bind('mouseup touchstop', function(e) {
-    			var bit = id_to_bit(e.target.id);
-    			pico8_buttons[0] &= ~bit
+    		$(".arrow").bind('mouseup', function(e) {
+    			pico8_buttons=[0];
+    		})
+
+    		$(".arrow").bind('touchstart touchend', function(e) {
+    			pico8_buttons=[0];
+    			$.each(touches,function(i,touch){
+    				press(touch.target.id);
+    			});
     		})
     	});
     </script>
