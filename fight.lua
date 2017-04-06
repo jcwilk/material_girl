@@ -693,7 +693,7 @@ function make_fight()
 
   local function draw_stat(percentage, top_y, color)
     left_x = cam.x
-    of_twenty = flr(max(percentage,0,1)*20+0.5)
+    of_twenty = flr(mid(percentage,0,1)*20+0.5)
     line(20-of_twenty+left_x,top_y,left_x+20,top_y,color)
   end
 

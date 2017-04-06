@@ -72,12 +72,6 @@ function check_tile (x,y,bit)
     return true
   end
 
-  for door in all(calc_doors()) do
-    if door.x == x and door.y == y and not door.open then
-      return true
-    end
-  end
-
   val = mget(x,y)
   return fget(val,bit)
 end
@@ -85,24 +79,14 @@ end
 --check if tile with min corner at x,y is sufficiently overlapped with door tile to count as entered
 --assumes only able to enter door from top or bottom
 function entered_door(x,y)
-  if check_px(x,y+7,3) and check_px(x,y+1,3) then
-    -- figure out which door it is by which quadrant the player is in
-    if x > 64 then
-      if y > 64 then
-        return 4 --shoes
-      else
-        return 3 --ring
-      end
-    else
-      if y > 64 then
-        return 2 --lipstick
-      else
-        return 1 --dress
-      end
-    end
-  else
+  local door = open_door()
+  if not door then
     return false
   end
+  if door.x*8 <= x+3 and door.x*8 >= x-3 and y <= door.y*8+11 and y >= door.y*8-11 then
+    return inventory.current_store()
+  end
+  return false
 end
 
 --exit door to previous tile
@@ -132,7 +116,6 @@ function reset_doors()
 end
 
 function end_walkabout()
-
   sale.counter=0
 end
 
@@ -142,9 +125,7 @@ function update_walkabout()
   local moved = false
   local nflp
 
-
   place_sale()
-
 
   if btn(0) then
     nflp=true
