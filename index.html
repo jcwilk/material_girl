@@ -218,7 +218,7 @@ td.arrow {
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
     <script>
     	$(document).ready(function(){
-    		$('.arrow').mousedown(function(e){
+    		$(".arrow").bind('mousedown touchstart', function(e) {
     			switch(e.target.id) {
     				case 'left-arrow':
     					pico8_buttons=[1];
@@ -234,7 +234,7 @@ td.arrow {
 
     			}
     		})
-    		$('.arrow').mouseup(function(e){
+    		$(".arrow").bind('mouseup touchstop', function(e) {
     			pico8_buttons=[]
     		})
     	});
