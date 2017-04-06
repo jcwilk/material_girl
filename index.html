@@ -248,7 +248,7 @@ td.arrow {
 
     		$(".arrow").bind('touchstart touchend', function(e) {
     			pico8_buttons=[0];
-    			$.each(touches,function(i,touch){
+    			$.each(e.touches,function(i,touch){
     				press(touch.target.id);
     			});
     		})
