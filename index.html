@@ -242,8 +242,12 @@ td.arrow {
     		$(".arrow").bind('mousedown touchstart', function(e) {
     			press(e.target.id);
     		})
-    		$(".arrow").bind('mouseup touchend', function(e) {
+    		$(".arrow").bind('mouseup', function(e) {
     			pico8_buttons=[0];
+    		})
+    		$(".arrow").bind('touchend', function(e) {
+    			var bit = id_to_bit(e.target.id)
+    			pico8_buttons[0] &= ~bit
     		})
     	});
     </script>
