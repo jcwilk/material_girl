@@ -137,20 +137,12 @@ make_enemy = function(player,attributes)
     return obj.closeness < 1
   end
 
-  local function attack_check()
-    return true --inventory.hearts_count/obj.attraction < rnd()*10
-  end
-
   local function counterattack_check()
     obj.patience-= 1-obj.attraction
     if obj.patience <= 0 then
       obj.patience+= 1
       return true
     end
-  end
-
-  local function flee_check()
-    return false --obj.attraction*obj.attraction < rnd()*0.15
   end
 
   local function failed_withdraw_speech()
@@ -230,24 +222,6 @@ make_enemy = function(player,attributes)
     }
   end
 
-  local function flee()
-    obj.current_action = {
-      name = 'flee',
-      start = function()
-        queue_text(function()
-          color(12)
-          print "i have obligations elsewhere"
-        end)
-      end,
-      middle = function()
-        queue_text(function()
-          color(12)
-          print "perhaps another time"
-        end)
-      end
-    }
-  end
-
   local function run()
     obj.current_action = {
       name = 'run',
@@ -273,8 +247,6 @@ make_enemy = function(player,attributes)
   local function attempt_counterattack()
     if counterattack_check() then
       deferred_action = counterattack
-    elseif flee_check() then
-      deferred_action = flee
     end
   end
 
@@ -396,7 +368,7 @@ make_enemy = function(player,attributes)
             lower_stat('attraction')
           end
         }
-      elseif attack_check() then
+      else
         obj.current_action = {
           name = 'attack',
           start = function()
@@ -421,23 +393,6 @@ make_enemy = function(player,attributes)
             else
               lower_stat('attraction')
             end
-          end
-        }
-      else
-        obj.current_action = {
-          name = 'attack_fail',
-          start = function()
-            queue_text(function()
-              color(14)
-              print "*whistle*"
-            end)
-          end,
-          middle = function()
-            lower_stat('attraction')
-            queue_text(function()
-              color(14)
-              print "hm, he's hesitating"
-            end)
           end
         }
       end

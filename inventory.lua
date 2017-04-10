@@ -39,7 +39,7 @@ function make_inventory(is_for_enemy)
     end
     heart.relative_to_cam=true
     heart.centered=true
-    tweens.make(heart,'y',5,30,tweens.easings.bounce_out)
+    tweens.make(heart,'y',5,30,'quadratic',{ease_out=true})
     add(owned_hearts,heart)
     obj.hearts_count += 1
   end

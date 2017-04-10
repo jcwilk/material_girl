@@ -38,6 +38,23 @@ __lua__
 --  }
 -- end
 
+--debug shit
+-- properties.debug = function()
+--   printh("debug sprite_id = " .. properties.sprite_id)
+--   for k,v in pairs(properties) do
+--     if type(v) == 'boolean' then
+--       if v then
+--         v = 'true'
+--       else
+--         v = 'false'
+--       end
+--     end
+--     if type(v) != "function" and type(v) != "table" then
+--       printh(k .. ": " .. v)
+--     end
+--   end
+-- end
+
 -- start ext ./utils.p8
 noop_f = function()
 end
@@ -46,59 +63,7 @@ id_f = function(val)
  return val
 end
 
--- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
--- function heapsort(t, cmp)
---   local n = #t
---   if n <= 1 then
---     return
---   end
---   local i, j, temp
---   local lower = flr(n / 2) + 1
---   local upper = n
---   cmp = cmp or function(a,b)
---     if a < b then
---       return -1
---     elseif a == b then
---       return 0
---     else
---       return 1
---     end
---   end
---   while 1 do
---     if lower > 1 then
---       lower -= 1
---       temp = t[lower]
---     else
---       temp = t[upper]
---       t[upper] = t[1]
---       upper -= 1
---       if upper == 1 then
---         t[1] = temp
---         return
---       end
---     end
-
---     i = lower
---     j = lower * 2
---     while j <= upper do
---       if j < upper and cmp(t[j], t[j+1]) < 0 then
---         j += 1
---       end
---       if cmp(temp, t[j]) < 0 then
---         t[i] = t[j]
---         i = j
---         j += i
---       else
---         j = upper + 1
---       end
---     end
---     t[i] = temp
---   end
--- end
-
-
--- because we generally keep things sorted so this will only be adding a few things at a time
--- so efficiency is good enough and it doesn't take many tokens
+--all4tehtokens
 function bubble_sort(t, field, default)
  if #t > 1 then
   local do_pass = function()
@@ -117,7 +82,6 @@ function bubble_sort(t, field, default)
  end
 end
 
--- sprite stuffs
 make_pool = function()
  local store = {}
  local id_counter = 0
@@ -288,21 +252,6 @@ sprites = {
     if properties.walking_scale == nil then
       properties.walking_scale = 1
     end
-    -- properties.debug = function()
-    --   printh("debug sprite_id = " .. properties.sprite_id)
-    --   for k,v in pairs(properties) do
-    --     if type(v) == 'boolean' then
-    --       if v then
-    --         v = 'true'
-    --       else
-    --         v = 'false'
-    --       end
-    --     end
-    --     if type(v) != "function" and type(v) != "table" then
-    --       printh(k .. ": " .. v)
-    --     end
-    --   end
-    -- end
     sprites.pool.make(properties)
     return properties
   end,
@@ -377,20 +326,6 @@ tweens = {
     circular = function(k) -- this might technically be "sine"
       return 1-cos(k/4)
     end,
-    bounce_out = function(k) -- from https://github.com/photonstorm/phaser/blob/v2.4.6/src/tween/Easing.js
-      if k < ( 1 / 2.75 ) then
-        return(7.5625 * k * k)
-      elseif k < ( 2 / 2.75 ) then
-        k -=  1.5 / 2.75
-        return(7.5625 * k * k + 0.75)
-      elseif k < ( 2.5 / 2.75 ) then
-        k -= 2.25 / 2.75
-        return(7.5625 * k * k + 0.9375)
-      else
-        k -= 2.625 / 2.75
-        return(7.5625 * k * k + 0.984375)
-      end
-    end,
     merge = function(ease_in,ease_out)
       return function(k)
         return 1 - ease_out(1-ease_in(k))
@@ -399,8 +334,6 @@ tweens = {
   },
   pool = make_pool(),
   make = function(sprite,property,final,time,easing,options)
-    -- printh(sprite.sprite_id)
-    -- printh(property)
     local initial = sprite[property]
     local diff = final - initial
     local count = 0
@@ -443,10 +376,6 @@ tweens = {
       end
 
       local out
-      -- printh(sprite.sprite_id)
-      -- printh(property)
-      -- printh(final)
-      -- printh(time)
       if tween.ease_in_and_out then
         out = initial + diff*(1-(easing(1-easing(time_factor))))
       elseif tween.ease_out then

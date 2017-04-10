@@ -1,8 +1,4 @@
 -- START LIB
--- walkabout update logic
-
---check if tile with the min corner at x,y is overlapping with a solid tile
---useful for checking if a not-yet-moved-to tile will be problematic
 function sprite_collided(x,y)
   return solid_px(x,y) or
     solid_px(x+7,y) or
@@ -10,14 +6,10 @@ function sprite_collided(x,y)
     solid_px(x+7,y+7)
 end
 
---check solidity by pixel
---true if pixel within a solid tile
 function solid_px(x,y)
   return check_px(x,y,1)
 end
 
---check tile bit by pixel
---true if pixel within a tile of a certain bit
 function check_px(x,y,bit)
   return check_tile(flr(x/8),flr(y/8),bit)
 end
@@ -76,8 +68,7 @@ function check_tile (x,y,bit)
   return fget(val,bit)
 end
 
---check if tile with min corner at x,y is sufficiently overlapped with door tile to count as entered
---assumes only able to enter door from top or bottom
+--check if overlapped with door
 function entered_door(x,y)
   local door = open_door()
   if not door then
@@ -89,11 +80,7 @@ function entered_door(x,y)
   return false
 end
 
---exit door to previous tile
---assumes only enter from top or bottom
---returns exit y value
 function exit_door_y(x,y)
-  -- 12 because 8 is tile width + 4 of buffer to allow for high movement speeds
   if solid_px(x,y+12) then --low door
     return flr(y/8)*8-8
   else --high door
@@ -169,13 +156,14 @@ function update_walkabout()
   return true
 end
 
-sale = {
-  alive=true,
-  counter=1,
-  text="sale"
-}
-
 function place_sale()
+  if not sale then
+    sale = {
+      alive=true,
+      counter=1,
+      text="sale"
+    }
+  end
   sale.counter-=1
   sale.color = ({7,8,10,11,12,14})[flr(sale.counter/4)%6+1] --[flr(rnd(6))+1]
   if sale.counter <= 0 then
@@ -185,53 +173,86 @@ function place_sale()
     end
     sale.x = door.x*8-18+rnd(30)
     sale.y = door.y*8-10+rnd(20)
-    --sale.color = ({7,8,10,11,12,14})[flr(rnd(6))+1]
     sale.counter = flr(15+rnd(5))
     sale.text = ({"sale","omg","wow","oooh"})[flr(rnd(4))+1]
   end
 end
 
 function _init()
-  player = sprites.make(0,{x=56,y=56,z=100})
+  cam.y=-128
+  player = sprites.make(0,{x=24,y=cam.y+32,z=250,scale=8})
   player.walking_frames = {0,1,0,2}
   player.walking_scale = 2
   player.before_draw = function()
     inventory.remap_girl_colors()
   end
   spd=2
-  anim_t=0
   inventory = make_inventory()
   fighting = make_fight(inventory)
+  intro_screen = true
+  start_tile=sprites.make(45,{x=32,y=cam.y+64,scale=8,z=200})
+  start_tile.before_draw = function()
+    palt(0,false)
+  end
 
-  place_sale()
-
-  --fighting.start() --uncomment to start in a fight
-
-  --music(o,0,15)
-  -- most init code is above the function it relates to
-  -- also some init code at the top
-  -- subject to change, but makes things a bit easier for now
+  local turnloop
+  turnloop=function()
+    if not intro_screen then
+      return
+    end
+    if player.flip then
+      player.flip = false
+      player.x-=8
+    else
+      player.flip = true
+      player.x+=8
+    end
+    return delays.make(rnd()*100+200).next(turnloop)
+  end
+  turnloop()
 end
 
 --local flicker_count = 1
+local intro_landing = false
 function _update()
-  --flicker_count-=1
-  --if flicker_count <= 0 then
-    delays.process(function()
-      tweens.advance()
-    end)
-    --flicker_count = 1 --raise this to slow down
-  --end
-  return fighting.update() or update_walkabout()
-end
+  delays.process(function()
+    tweens.advance()
+  end)
+  if intro_screen then
+    sprites.draw()
 
------
--- drawing
---
--- keep logic to a minimum
--- no game behavior or state changes here
--- assume frames will be missed
------
+    if not intro_landing and (btn(0) or btn(1) or btn(2) or btn(3)) then
+      intro_landing=true
+      player.sprite_id=2
+      local faketile=sprites.make(90,{x=50,y=75-128,z=5})
+
+      promises.all({
+        tweens.make(faketile,'x',0,50),
+        tweens.make(faketile,'y',-128,50),
+        tweens.make(faketile,'scale',16,50),
+        tweens.make(stars_obj,'y',55,50),
+        tweens.make(stars_obj,'speed',10,50),
+        tweens.make(stars_obj,'spread',12,50,'quadratic'),
+        tweens.make(start_tile,'y',-128+56,50),
+        tweens.make(start_tile,'x',56,50),
+        tweens.make(start_tile,'scale',1,50),
+        tweens.make(player,'scale',1,50),
+        tweens.make(player,'x',56,50),
+        tweens.make(player,'y',-128+56,50)
+      }).next(function()
+        cam.y+=128
+        player.y+=128
+        intro_screen=false
+        faketile.kill()
+        start_tile.kill()
+        player.sprite_id=0
+        player.z=100
+      end)
+    end
+  else
+    return fighting.update() or update_walkabout()
+  end
+end
 
 queued_fns = {}
 
@@ -246,8 +267,54 @@ function queue_text(fn)
   add(queued_fns,fn)
 end
 
+staroffset = 0
+stars_obj={
+  alive=true,
+  spread=1,
+  speed=1,
+  y=112
+}
 function _draw()
   cam.apply()
+
+  if intro_screen then
+    rectfill(0,-128,127,-1,0)
+    sprites.draw(nil,9)
+    local fancy_print = function(string,x,y,col1,col2)
+      for xi=x-1,x+1 do
+        for yi=y-1,y+1 do
+          print(string,xi,yi,col1)
+        end
+      end
+      print(string,x,y,col2)
+    end
+    staroffset+=.1846*stars_obj.speed
+    local scale=200
+    local x
+    local y
+    local colormap = {8,5,2,6,7,14}
+    --local colormap = {1,5,2,6,14}
+    local color
+    local step = .63
+    for starn=5+staroffset/100,200+staroffset/100,step do
+      --pset(64+cos(starn/5)*starn,-1-abs(sin(starn))*starn*2,flr(starn%14)+1)
+      x = 58+cos(starn)*starn*stars_obj.spread
+      y = -128+stars_obj.y+sin(starn)*starn*stars_obj.spread
+      if x < 136 and x > -8 and y < 8 and y > -136 then
+        --color = flr((starn-staroffset/100)/step)%14+1
+        color = colormap[flr((starn-staroffset/100)/step)%#colormap+1]
+        --rectfill(x,y,x+31,y+31,color)
+
+        --pset(x,y,color)
+        pal(8,color)
+        spr(10,x-4,y-4)
+        --zspr(10,1,1,x,y,false,false,2,2)
+      end
+    end
+    pal()
+    fancy_print("mATERIAL gIRL", 15,-122,1,8)
+    fancy_print("BY jOHN wILKINSON", 45,-110,1,8)
+  end
 
   if fighting.draw() then
     return
@@ -283,11 +350,12 @@ function _draw()
   palt(0,false)
   map(0,0,0,0,128,128,1)
   palt()
-  sprites.draw()
+  sprites.draw(10,150)
   palt(0,false)
   map(0,0,0,0,128,128,4)
   palt()
-  if open_door() then
+  sprites.draw(151,nil)
+  if open_door() and sale then
     print(sale.text,sale.x,sale.y,sale.color)
   end
 end

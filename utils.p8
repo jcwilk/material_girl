@@ -9,59 +9,7 @@ id_f = function(val)
   return val
 end
 
--- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
--- function heapsort(t, cmp)
---   local n = #t
---   if n <= 1 then
---     return
---   end
---   local i, j, temp
---   local lower = flr(n / 2) + 1
---   local upper = n
---   cmp = cmp or function(a,b)
---     if a < b then
---       return -1
---     elseif a == b then
---       return 0
---     else
---       return 1
---     end
---   end
---   while 1 do
---     if lower > 1 then
---       lower -= 1
---       temp = t[lower]
---     else
---       temp = t[upper]
---       t[upper] = t[1]
---       upper -= 1
---       if upper == 1 then
---         t[1] = temp
---         return
---       end
---     end
-
---     i = lower
---     j = lower * 2
---     while j <= upper do
---       if j < upper and cmp(t[j], t[j+1]) < 0 then
---         j += 1
---       end
---       if cmp(temp, t[j]) < 0 then
---         t[i] = t[j]
---         i = j
---         j += i
---       else
---         j = upper + 1
---       end
---     end
---     t[i] = temp
---   end
--- end
-
-
--- because we generally keep things sorted so this will only be adding a few things at a time
--- so efficiency is good enough and it doesn't take many tokens
+--all4tehtokens
 function bubble_sort(t, field, default)
   if #t > 1 then
     local do_pass = function()
@@ -80,7 +28,6 @@ function bubble_sort(t, field, default)
   end
 end
 
--- sprite stuffs
 make_pool = function()
   local store = {}
   local id_counter = 0

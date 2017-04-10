@@ -1,15 +1,23 @@
+--debug stuff
+
+-- local function draw_stat(percentage, top_y, color)
+--   left_x = cam.x
+--   of_twenty = flr(mid(percentage,0,1)*20+0.5)
+--   line(20-of_twenty+left_x,top_y,left_x+20,top_y,color)
+-- end
+
+-- local highest_cpu = 0
+-- local function draw_enemy_stats(enemy_data)
+--   draw_stat(enemy_data.closeness,9,8)
+--   draw_stat(enemy_data.attraction,10,9)
+--   draw_stat(enemy_data.patience,11,10)
+--   draw_stat(stat(0)/1024,12,11)
+--   draw_stat(stat(1),13,12)
+--   highest_cpu = max(highest_cpu,stat(1))
+--   draw_stat(highest_cpu,14,13)
+-- end
+
 -- START LIB
--- depends on:
--- zspr - sprite helper function
-----
--- Fight factory - call this to generate a new fight
-----
--- starts as inactive, calls to update/draw will noop
--- start() - activates the fight
--- update() - update step logic, returns false if inactive
--- draw() - perform draw step, returns false if inactive
--- when the fight is finished it will deactivate itself
--- when you want a new fight, discard the old object and create a new one
 function make_fight()
   local obj, fanim, first_draw, kiss --misc fight state
   local ofpx, ofpy, cfpx --player state
@@ -25,9 +33,7 @@ function make_fight()
   local sliding_store = false
   local night=false
   local dusk=false
-  ----
-  -- fighting animation update logic
-  ----
+
   local function calc_fighter_x()
     return flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
   end
@@ -556,40 +562,6 @@ function make_fight()
     end)
   end
 
-  local function fattack_fail()
-    enemy_data.current_action.start()
-
-    fanim = function()
-        fighter.sprite_id = flr(fighter.x/6)%3
-    end
-
-    approach_easing = tweens.easings.merge(tweens.easings.quadratic,tweens.easings.cubic)
-    local approach = tweens.make(fighter,'x',enemy.x-16,20,approach_easing)
-    --approach.ease_in_and_out = true
-    approach.on_complete = function()
-      enemy_data.current_action.middle()
-
-      fanim = noop_f
-      enemy.flip=true
-      enemy.x+=8
-      if enemy_data.hp <= 0 then
-        fwin()
-      else
-        local recede = tweens.make(fighter,'x',cfpx,12,'quadratic')
-        fighter.sprite_id = 2
-        recede.ease_in_and_out=true
-        recede.on_complete = function()
-          fighter.sprite_id=0
-          kiss=false
-          enemy.sprite_id=4
-          enemy.x=enemy_data.base_x
-          fanim=false
-          enemy.flip=false
-        end
-      end
-    end
-  end
-
   local function fmagic()
     local spinx = fighter.x
     --fighter.sprite_id = 1
@@ -711,18 +683,6 @@ function make_fight()
     end)
   end
 
-  local function fflee()
-    enemy_data.current_action.start()
-    enemy.walking = true
-    fanim = noop_f
-    enemy.flip=true
-    enemy_data.current_action.middle()
-    tweens.make(enemy,'x',cam.x+140,60,'quadratic').on_complete = function()
-      enemy.walking=false
-      exit_battle()
-    end
-  end
-
   local function press_key(sprite_id,left_x,top_y)
     local key = sprites.make(sprite_id,{x=left_x+4,y=top_y+4})
     key.centered = true
@@ -780,8 +740,6 @@ function make_fight()
         fattack()
       elseif enemy_data.current_action.name == 'magic' then
         fmagic()
-      elseif enemy_data.current_action.name == 'attack_fail' then
-        fattack_fail()
       elseif enemy_data.current_action.name == 'counterattack' then
         fenemy_attack()
       elseif enemy_data.current_action.name == 'lose' then
@@ -790,17 +748,12 @@ function make_fight()
         fwin()
       elseif enemy_data.current_action.name == 'move' then
         fmove()
-      elseif enemy_data.current_action.name == 'flee' then
-        fflee()
       end
     end
 
     return true
   end
 
-  -----------------------
-  --Drawing fighting code
-  -----------------------
   local function draw_fui()
     if not fanim then
       color(7)
@@ -833,23 +786,6 @@ function make_fight()
       kissx=false
       kissy=false
     end
-  end
-
-  local function draw_stat(percentage, top_y, color)
-    left_x = cam.x
-    of_twenty = flr(mid(percentage,0,1)*20+0.5)
-    line(20-of_twenty+left_x,top_y,left_x+20,top_y,color)
-  end
-
-  local highest_cpu = 0
-  local function draw_enemy_stats()
-    draw_stat(enemy_data.closeness,9,8)
-    draw_stat(enemy_data.attraction,10,9)
-    draw_stat(enemy_data.patience,11,10)
-    draw_stat(stat(0)/1024,12,11)
-    draw_stat(stat(1),13,12)
-    highest_cpu = max(highest_cpu,stat(1))
-    draw_stat(highest_cpu,14,13)
   end
 
   local function draw_fight()

@@ -12,59 +12,7 @@ id_f = function(val)
  return val
 end
 
--- adapted from http://www.lexaloffle.com/bbs/?pid=18374#p18374
--- function heapsort(t, cmp)
---   local n = #t
---   if n <= 1 then
---     return
---   end
---   local i, j, temp
---   local lower = flr(n / 2) + 1
---   local upper = n
---   cmp = cmp or function(a,b)
---     if a < b then
---       return -1
---     elseif a == b then
---       return 0
---     else
---       return 1
---     end
---   end
---   while 1 do
---     if lower > 1 then
---       lower -= 1
---       temp = t[lower]
---     else
---       temp = t[upper]
---       t[upper] = t[1]
---       upper -= 1
---       if upper == 1 then
---         t[1] = temp
---         return
---       end
---     end
-
---     i = lower
---     j = lower * 2
---     while j <= upper do
---       if j < upper and cmp(t[j], t[j+1]) < 0 then
---         j += 1
---       end
---       if cmp(temp, t[j]) < 0 then
---         t[i] = t[j]
---         i = j
---         j += i
---       else
---         j = upper + 1
---       end
---     end
---     t[i] = temp
---   end
--- end
-
-
--- because we generally keep things sorted so this will only be adding a few things at a time
--- so efficiency is good enough and it doesn't take many tokens
+--all4tehtokens
 function bubble_sort(t, field, default)
  if #t > 1 then
   local do_pass = function()
@@ -83,7 +31,6 @@ function bubble_sort(t, field, default)
  end
 end
 
--- sprite stuffs
 make_pool = function()
  local store = {}
  local id_counter = 0
@@ -254,21 +201,6 @@ sprites = {
   if properties.walking_scale == nil then
    properties.walking_scale = 1
   end
-  properties.debug = function()
-   printh("debug sprite_id = " .. properties.sprite_id)
-   for k,v in pairs(properties) do
-    if type(v) == 'boolean' then
-     if v then
-      v = 'true'
-     else
-      v = 'false'
-     end
-    end
-    if type(v) != "function" and type(v) != "table" then
-     printh(k .. ": " .. v)
-    end
-   end
-  end
   sprites.pool.make(properties)
   return properties
  end,
@@ -343,20 +275,6 @@ tweens = {
   circular = function(k) -- this might technically be "sine"
    return 1-cos(k/4)
   end,
-  bounce_out = function(k) -- from https://github.com/photonstorm/phaser/blob/v2.4.6/src/tween/Easing.js
-   if k < ( 1 / 2.75 ) then
-    return(7.5625 * k * k)
-   elseif k < ( 2 / 2.75 ) then
-    k -=  1.5 / 2.75
-    return(7.5625 * k * k + 0.75)
-   elseif k < ( 2.5 / 2.75 ) then
-    k -= 2.25 / 2.75
-    return(7.5625 * k * k + 0.9375)
-   else
-    k -= 2.625 / 2.75
-    return(7.5625 * k * k + 0.984375)
-   end
-  end,
   merge = function(ease_in,ease_out)
    return function(k)
     return 1 - ease_out(1-ease_in(k))
@@ -365,8 +283,6 @@ tweens = {
  },
  pool = make_pool(),
  make = function(sprite,property,final,time,easing,options)
-  -- printh(sprite.sprite_id)
-  -- printh(property)
   local initial = sprite[property]
   local diff = final - initial
   local count = 0
@@ -409,10 +325,6 @@ tweens = {
    end
 
    local out
-   -- printh(sprite.sprite_id)
-   -- printh(property)
-   -- printh(final)
-   -- printh(time)
    if tween.ease_in_and_out then
     out = initial + diff*(1-(easing(1-easing(time_factor))))
    elseif tween.ease_out then
@@ -477,7 +389,7 @@ function make_inventory(is_for_enemy)
   end
   heart.relative_to_cam=true
   heart.centered=true
-  tweens.make(heart,'y',5,30,tweens.easings.bounce_out)
+  tweens.make(heart,'y',5,30,'quadratic',{ease_out=true})
   add(owned_hearts,heart)
   obj.hearts_count += 1
  end
@@ -534,17 +446,6 @@ end
 -- end ext
 
 -- start ext fight.lua
--- depends on:
--- zspr - sprite helper function
-----
--- Fight factory - call this to generate a new fight
-----
--- starts as inactive, calls to update/draw will noop
--- start() - activates the fight
--- update() - update step logic, returns false if inactive
--- draw() - perform draw step, returns false if inactive
--- when the fight is finished it will deactivate itself
--- when you want a new fight, discard the old object and create a new one
 function make_fight()
  local obj, fanim, first_draw, kiss --misc fight state
  local ofpx, ofpy, cfpx --player state
@@ -560,9 +461,7 @@ function make_fight()
  local sliding_store = false
  local night=false
  local dusk=false
- ----
- -- fighting animation update logic
- ----
+
  local function calc_fighter_x()
   return flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
  end
@@ -1091,40 +990,6 @@ function make_fight()
   end)
  end
 
- local function fattack_fail()
-  enemy_data.current_action.start()
-
-  fanim = function()
-    fighter.sprite_id = flr(fighter.x/6)%3
-  end
-
-  approach_easing = tweens.easings.merge(tweens.easings.quadratic,tweens.easings.cubic)
-  local approach = tweens.make(fighter,'x',enemy.x-16,20,approach_easing)
-  --approach.ease_in_and_out = true
-  approach.on_complete = function()
-   enemy_data.current_action.middle()
-
-   fanim = noop_f
-   enemy.flip=true
-   enemy.x+=8
-   if enemy_data.hp <= 0 then
-    fwin()
-   else
-    local recede = tweens.make(fighter,'x',cfpx,12,'quadratic')
-    fighter.sprite_id = 2
-    recede.ease_in_and_out=true
-    recede.on_complete = function()
-     fighter.sprite_id=0
-     kiss=false
-     enemy.sprite_id=4
-     enemy.x=enemy_data.base_x
-     fanim=false
-     enemy.flip=false
-    end
-   end
-  end
- end
-
  local function fmagic()
   local spinx = fighter.x
   --fighter.sprite_id = 1
@@ -1246,18 +1111,6 @@ function make_fight()
   end)
  end
 
- local function fflee()
-  enemy_data.current_action.start()
-  enemy.walking = true
-  fanim = noop_f
-  enemy.flip=true
-  enemy_data.current_action.middle()
-  tweens.make(enemy,'x',cam.x+140,60,'quadratic').on_complete = function()
-   enemy.walking=false
-   exit_battle()
-  end
- end
-
  local function press_key(sprite_id,left_x,top_y)
   local key = sprites.make(sprite_id,{x=left_x+4,y=top_y+4})
   key.centered = true
@@ -1315,8 +1168,6 @@ function make_fight()
     fattack()
    elseif enemy_data.current_action.name == 'magic' then
     fmagic()
-   elseif enemy_data.current_action.name == 'attack_fail' then
-    fattack_fail()
    elseif enemy_data.current_action.name == 'counterattack' then
     fenemy_attack()
    elseif enemy_data.current_action.name == 'lose' then
@@ -1325,17 +1176,12 @@ function make_fight()
     fwin()
    elseif enemy_data.current_action.name == 'move' then
     fmove()
-   elseif enemy_data.current_action.name == 'flee' then
-    fflee()
    end
   end
 
   return true
  end
 
- -----------------------
- --Drawing fighting code
- -----------------------
  local function draw_fui()
   if not fanim then
    color(7)
@@ -1368,23 +1214,6 @@ function make_fight()
    kissx=false
    kissy=false
   end
- end
-
- local function draw_stat(percentage, top_y, color)
-  left_x = cam.x
-  of_twenty = flr(mid(percentage,0,1)*20+0.5)
-  line(20-of_twenty+left_x,top_y,left_x+20,top_y,color)
- end
-
- local highest_cpu = 0
- local function draw_enemy_stats()
-  draw_stat(enemy_data.closeness,9,8)
-  draw_stat(enemy_data.attraction,10,9)
-  draw_stat(enemy_data.patience,11,10)
-  draw_stat(stat(0)/1024,12,11)
-  draw_stat(stat(1),13,12)
-  highest_cpu = max(highest_cpu,stat(1))
-  draw_stat(highest_cpu,14,13)
  end
 
  local function draw_fight()
@@ -1685,20 +1514,12 @@ make_enemy = function(player,attributes)
   return obj.closeness < 1
  end
 
- local function attack_check()
-  return true --inventory.hearts_count/obj.attraction < rnd()*10
- end
-
  local function counterattack_check()
   obj.patience-= 1-obj.attraction
   if obj.patience <= 0 then
    obj.patience+= 1
    return true
   end
- end
-
- local function flee_check()
-  return false --obj.attraction*obj.attraction < rnd()*0.15
  end
 
  local function failed_withdraw_speech()
@@ -1778,24 +1599,6 @@ make_enemy = function(player,attributes)
   }
  end
 
- local function flee()
-  obj.current_action = {
-   name = 'flee',
-   start = function()
-    queue_text(function()
-     color(12)
-     print "i have obligations elsewhere"
-    end)
-   end,
-   middle = function()
-    queue_text(function()
-     color(12)
-     print "perhaps another time"
-    end)
-   end
-  }
- end
-
  local function run()
   obj.current_action = {
    name = 'run',
@@ -1821,8 +1624,6 @@ make_enemy = function(player,attributes)
  local function attempt_counterattack()
   if counterattack_check() then
    deferred_action = counterattack
-  elseif flee_check() then
-   deferred_action = flee
   end
  end
 
@@ -1944,7 +1745,7 @@ make_enemy = function(player,attributes)
       lower_stat('attraction')
      end
     }
-   elseif attack_check() then
+   else
     obj.current_action = {
      name = 'attack',
      start = function()
@@ -1969,23 +1770,6 @@ make_enemy = function(player,attributes)
       else
        lower_stat('attraction')
       end
-     end
-    }
-   else
-    obj.current_action = {
-     name = 'attack_fail',
-     start = function()
-      queue_text(function()
-       color(14)
-       print "*whistle*"
-      end)
-     end,
-     middle = function()
-      lower_stat('attraction')
-      queue_text(function()
-       color(14)
-       print "hm, he's hesitating"
-      end)
      end
     }
    end
@@ -2062,10 +1846,6 @@ make_enemy = function(player,attributes)
 end
 -- end ext
 -- start ext main.lua
--- walkabout update logic
-
---check if tile with the min corner at x,y is overlapping with a solid tile
---useful for checking if a not-yet-moved-to tile will be problematic
 function sprite_collided(x,y)
  return solid_px(x,y) or
   solid_px(x+7,y) or
@@ -2073,14 +1853,10 @@ function sprite_collided(x,y)
   solid_px(x+7,y+7)
 end
 
---check solidity by pixel
---true if pixel within a solid tile
 function solid_px(x,y)
  return check_px(x,y,1)
 end
 
---check tile bit by pixel
---true if pixel within a tile of a certain bit
 function check_px(x,y,bit)
  return check_tile(flr(x/8),flr(y/8),bit)
 end
@@ -2139,8 +1915,7 @@ function check_tile (x,y,bit)
  return fget(val,bit)
 end
 
---check if tile with min corner at x,y is sufficiently overlapped with door tile to count as entered
---assumes only able to enter door from top or bottom
+--check if overlapped with door
 function entered_door(x,y)
  local door = open_door()
  if not door then
@@ -2152,11 +1927,7 @@ function entered_door(x,y)
  return false
 end
 
---exit door to previous tile
---assumes only enter from top or bottom
---returns exit y value
 function exit_door_y(x,y)
- -- 12 because 8 is tile width + 4 of buffer to allow for high movement speeds
  if solid_px(x,y+12) then --low door
   return flr(y/8)*8-8
  else --high door
@@ -2232,13 +2003,14 @@ function update_walkabout()
  return true
 end
 
-sale = {
- alive=true,
- counter=1,
- text="sale"
-}
-
 function place_sale()
+ if not sale then
+  sale = {
+   alive=true,
+   counter=1,
+   text="sale"
+  }
+ end
  sale.counter-=1
  sale.color = ({7,8,10,11,12,14})[flr(sale.counter/4)%6+1] --[flr(rnd(6))+1]
  if sale.counter <= 0 then
@@ -2248,53 +2020,86 @@ function place_sale()
   end
   sale.x = door.x*8-18+rnd(30)
   sale.y = door.y*8-10+rnd(20)
-  --sale.color = ({7,8,10,11,12,14})[flr(rnd(6))+1]
   sale.counter = flr(15+rnd(5))
   sale.text = ({"sale","omg","wow","oooh"})[flr(rnd(4))+1]
  end
 end
 
 function _init()
- player = sprites.make(0,{x=56,y=56,z=100})
+ cam.y=-128
+ player = sprites.make(0,{x=24,y=cam.y+32,z=250,scale=8})
  player.walking_frames = {0,1,0,2}
  player.walking_scale = 2
  player.before_draw = function()
   inventory.remap_girl_colors()
  end
  spd=2
- anim_t=0
  inventory = make_inventory()
  fighting = make_fight(inventory)
+ intro_screen = true
+ start_tile=sprites.make(45,{x=32,y=cam.y+64,scale=8,z=200})
+ start_tile.before_draw = function()
+  palt(0,false)
+ end
 
- place_sale()
-
- --fighting.start() --uncomment to start in a fight
-
- --music(o,0,15)
- -- most init code is above the function it relates to
- -- also some init code at the top
- -- subject to change, but makes things a bit easier for now
+ local turnloop
+ turnloop=function()
+  if not intro_screen then
+   return
+  end
+  if player.flip then
+   player.flip = false
+   player.x-=8
+  else
+   player.flip = true
+   player.x+=8
+  end
+  return delays.make(rnd()*100+200).next(turnloop)
+ end
+ turnloop()
 end
 
 --local flicker_count = 1
+local intro_landing = false
 function _update()
- --flicker_count-=1
- --if flicker_count <= 0 then
-  delays.process(function()
-   tweens.advance()
-  end)
-  --flicker_count = 1 --raise this to slow down
- --end
- return fighting.update() or update_walkabout()
-end
+ delays.process(function()
+  tweens.advance()
+ end)
+ if intro_screen then
+  sprites.draw()
 
------
--- drawing
---
--- keep logic to a minimum
--- no game behavior or state changes here
--- assume frames will be missed
------
+  if not intro_landing and (btn(0) or btn(1) or btn(2) or btn(3)) then
+   intro_landing=true
+   player.sprite_id=2
+   local faketile=sprites.make(90,{x=50,y=75-128,z=5})
+
+   promises.all({
+    tweens.make(faketile,'x',0,50),
+    tweens.make(faketile,'y',-128,50),
+    tweens.make(faketile,'scale',16,50),
+    tweens.make(stars_obj,'y',55,50),
+    tweens.make(stars_obj,'speed',10,50),
+    tweens.make(stars_obj,'spread',12,50,'quadratic'),
+    tweens.make(start_tile,'y',-128+56,50),
+    tweens.make(start_tile,'x',56,50),
+    tweens.make(start_tile,'scale',1,50),
+    tweens.make(player,'scale',1,50),
+    tweens.make(player,'x',56,50),
+    tweens.make(player,'y',-128+56,50)
+   }).next(function()
+    cam.y+=128
+    player.y+=128
+    intro_screen=false
+    faketile.kill()
+    start_tile.kill()
+    player.sprite_id=0
+    player.z=100
+   end)
+  end
+ else
+  return fighting.update() or update_walkabout()
+ end
+end
 
 queued_fns = {}
 
@@ -2309,8 +2114,54 @@ function queue_text(fn)
  add(queued_fns,fn)
 end
 
+staroffset = 0
+stars_obj={
+ alive=true,
+ spread=1,
+ speed=1,
+ y=112
+}
 function _draw()
  cam.apply()
+
+ if intro_screen then
+  rectfill(0,-128,127,-1,0)
+  sprites.draw(nil,9)
+  local fancy_print = function(string,x,y,col1,col2)
+   for xi=x-1,x+1 do
+    for yi=y-1,y+1 do
+     print(string,xi,yi,col1)
+    end
+   end
+   print(string,x,y,col2)
+  end
+  staroffset+=.1846*stars_obj.speed
+  local scale=200
+  local x
+  local y
+  local colormap = {8,5,2,6,7,14}
+  --local colormap = {1,5,2,6,14}
+  local color
+  local step = .63
+  for starn=5+staroffset/100,200+staroffset/100,step do
+   --pset(64+cos(starn/5)*starn,-1-abs(sin(starn))*starn*2,flr(starn%14)+1)
+   x = 58+cos(starn)*starn*stars_obj.spread
+   y = -128+stars_obj.y+sin(starn)*starn*stars_obj.spread
+   if x < 136 and x > -8 and y < 8 and y > -136 then
+    --color = flr((starn-staroffset/100)/step)%14+1
+    color = colormap[flr((starn-staroffset/100)/step)%#colormap+1]
+    --rectfill(x,y,x+31,y+31,color)
+
+    --pset(x,y,color)
+    pal(8,color)
+    spr(10,x-4,y-4)
+    --zspr(10,1,1,x,y,false,false,2,2)
+   end
+  end
+  pal()
+  fancy_print("mATERIAL gIRL", 15,-122,1,8)
+  fancy_print("BY jOHN wILKINSON", 45,-110,1,8)
+ end
 
  if fighting.draw() then
   return
@@ -2346,11 +2197,12 @@ function _draw()
  palt(0,false)
  map(0,0,0,0,128,128,1)
  palt()
- sprites.draw()
+ sprites.draw(10,150)
  palt(0,false)
  map(0,0,0,0,128,128,4)
  palt()
- if open_door() then
+ sprites.draw(151,nil)
+ if open_door() and sale then
   print(sale.text,sale.x,sale.y,sale.color)
  end
 end
@@ -2372,14 +2224,14 @@ b3c5f445f4454445f445f33b34b5f4534b35f445f4454b34594774959f949f949dc7c7d40ee02002
 34bf4443f443f44bf44f4343543f43b343bff443f44f4335354994359f949f949d7c7cd420022212221222219f949f9422122221977777793333383533339335
 333f4f43ff4bf443fb4f43b333bf433545b3f44bff43b444334994539f949f949dddddd42e122212221222e149454945221222e1900770093383333535333353
 3b3543bb535434353b3f43b343b54b334445b34334344454445993359f949f949f949f94e00ee00eee0eee0033533533ee0eee00977777793533535335335353
-353d534353534532455353545d515d5100000000f55555049999999922222222111111113333333377777776777777767777777612101210f555555444553554
-543535453d55335354353533d5d5d5d50f000f00f64455049aaaaaa92eeeeee21cc77cc13b2bbb2377757776777577767775777621212121f6444454435ff534
-5343535353535434534d53535d515d51f440f440f44445049aaaaaa9288eeee21c7777c13b2bbb2377555776775577767775577612101210f44444543335f453
-535d45d4553545533453533515101510444444f4f44445049aa8a8892888aee21aa77aa132e2b2e375555576755555767555557601000100f44446545333f435
-3535354533235335353535335d515d51f4444444f44445049aaa88892e899ae21acccca13eee2ee377757776775577767775577612101210f44444545353f453
-535353545455453d53553d35d5d5d5d5f440f440f64440049a8888092e9999a21aaccaa13bbbbbb377757776777577767775777621212121f64444543533f433
-3535433435d33543554453435d515d51ff40f440f440000598888a092ee999921caaaac13bbbbbb377777776777777767777777612101220f4444455433bf455
-54335445353535354535335315101510000000002220222099999999222222221111111133333333666666666666666666666666010001002220222043bff445
+353d534353534532455353545d515d5100000000f5555504aaaaaaaa33333333228828823333333377777776777777767777777612101210f555555444553554
+543535453d55335354353533d5d5d5d50f000f00f6445504a999999a3be2bbb32e8888823b1bbb1377757776777577767775777621212121f6444454435ff534
+5343535353535434534d53535d515d51f440f440f4444504a999999a3b22eab3278888873b1bbb1377555776775577767775577612101210f44444543335f453
+535d45d4553545533453533515101510444444f4f4444504a99898883b2229b32778887731d1b1d175555576755555767555557601000100f44446545333f435
+3535354533235335353535335d515d51f4444444f4444504a99988883ba2a99327ee8ee73ddd1ddd77757776775577767775577612101210f44444545353f453
+535353545455453d53553d35d5d5d5d5f440f440f6444004a98880003b9a999a27eeeee73bbbbbb377757776777577767775777621212121f64444543533f433
+3535433435d33543554453435d515d51ff40f440f4400005a88889903bb99999277eee773bbbbbb377777776777777767777777612101220f4444455433bf455
+543354453535353545353353151015100000000022202220aaaaaaa03333a9992277777233333333666666666666666666666666010001002220222043bff445
 0000000048d2d2c448d4e2c4009000904e95245911111111ccccccccaaaaaaaa66656665aa565565001221222212212222aafaaaaaaaaaaaaaaaaa7a00000000
 00000000439be83443923834900a9900e495425911111c11ccccccccaaaaaafa66655555a6655666001221222212212222aaaaaaaaaaaaaaaaaaa66600000000
 00000000435333544333353409aaaa09449544591c111111ccccccccaafaaaaa66656665a5566657001221222212212222122aafaaaaaaaaaaaa665700000000
@@ -2396,14 +2248,14 @@ b3c5f445f4454445f445f33b34b5f4534b35f445f4454b34594774959f949f949dc7c7d40ee02002
 607677006670067067766777000000000000000000000000000000000000000012332159e4954259777700000005677500000000000000000000000000000000
 00000770006677000677776000000000000000000000000000000000000000004122145944004459000077770576775000000000000000000000000000000000
 00600000000000000000000000000000000000000000000000000000000000004411445940007459000077770007750000000000000000000000000000000000
-ee2888888888222772228888888882ee700000007777777700000007700000000000000000000007000000000000000000000000000000000000000000000000
-eeeee8888222277777722228888eeeee700000000000000000000007700000000000000000000007000000000000000000000000000000000000000000000000
-8eeeeee827777700007777728eeeeee8700000000000000000000007700000000000000000000007000000000000000000000000000000000000000000000000
-2eeeeee277000000000000772eeeeee2700000000000000000000007700000000000000000000007000000000000000000000000000000000000000000000000
-2eee882770000000000000077288eee2700000000000000000000007700000000000000000000007000000000000000000000000000000000000000000000000
-22ee877700000000000000007778ee22700000000000000000000007700000000000000000000007000000000000000000000000000000000000000000000000
-22ee270000000000000000000072ee22700000000000000000000007700000000000000000000007000000000000000000000000000000000000000000000000
-22287700000000000000000000778222700000000000000000000007777777777777777777777777000000000000000000000000000000000000000000000000
+ee2888888888222772228888888882ee700000007777777700000007700000000000000000000007344444430000000000000000000000000000000000000000
+eeeee8888222277777722228888eeeee700000000000000000000007700000000000000000000007b222b22b0000000000000000000000000000000000000000
+8eeeeee827777700007777728eeeeee87000000000000000000000077000000000000000000000073999b9930000000000000000000000000000000000000000
+2eeeeee277000000000000772eeeeee2700000000000000000000007700000000000000000000007b35555520000000000000000000000000000000000000000
+2eee882770000000000000077288eee2700000000000000000000007700000000000000000000007335335330000000000000000000000000000000000000000
+22ee877700000000000000007778ee22700000000000000000000007700000000000000000000007b22b222b0000000000000000000000000000000000000000
+22ee270000000000000000000072ee22700000000000000000000007700000000000000000000007399b99930000000000000000000000000000000000000000
+22287700000000000000000000778222700000000000000000000007777777777777777777777777b444444b0000000000000000000000000000000000000000
 22877000000000000000000000077822000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 28770000000000000000000000007782000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 28700000000000000000000000000782000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
