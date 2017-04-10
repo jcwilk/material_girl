@@ -288,6 +288,21 @@ sprites = {
     if properties.walking_scale == nil then
       properties.walking_scale = 1
     end
+    -- properties.debug = function()
+    --   printh("debug sprite_id = " .. properties.sprite_id)
+    --   for k,v in pairs(properties) do
+    --     if type(v) == 'boolean' then
+    --       if v then
+    --         v = 'true'
+    --       else
+    --         v = 'false'
+    --       end
+    --     end
+    --     if type(v) != "function" and type(v) != "table" then
+    --       printh(k .. ": " .. v)
+    --     end
+    --   end
+    -- end
     sprites.pool.make(properties)
     return properties
   end,
@@ -324,7 +339,6 @@ sprites = {
         local anchor_y = s.anchor_y or 0.5
         if s.flip then
           anchor_x = 1-anchor_x
-          anchor_y = 1-anchor_y
         end
         x-= anchor_x*8*scale_x
         y-= anchor_y*8*scale_y

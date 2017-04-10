@@ -254,6 +254,21 @@ sprites = {
   if properties.walking_scale == nil then
    properties.walking_scale = 1
   end
+  properties.debug = function()
+   printh("debug sprite_id = " .. properties.sprite_id)
+   for k,v in pairs(properties) do
+    if type(v) == 'boolean' then
+     if v then
+      v = 'true'
+     else
+      v = 'false'
+     end
+    end
+    if type(v) != "function" and type(v) != "table" then
+     printh(k .. ": " .. v)
+    end
+   end
+  end
   sprites.pool.make(properties)
   return properties
  end,
@@ -290,7 +305,6 @@ sprites = {
     local anchor_y = s.anchor_y or 0.5
     if s.flip then
      anchor_x = 1-anchor_x
-     anchor_y = 1-anchor_y
     end
     x-= anchor_x*8*scale_x
     y-= anchor_y*8*scale_y
@@ -544,7 +558,8 @@ function make_fight()
  local sun
  local just_jumped = false --fancy bounce animation
  local sliding_store = false
-
+ local night=false
+ local dusk=false
  ----
  -- fighting animation update logic
  ----
@@ -573,10 +588,14 @@ function make_fight()
   end
  end
 
- local function exit_battle()
+ local function kill_clouds()
   clouds.each(function(c)
    c.kill()
   end)
+ end
+
+ local function exit_battle()
+  kill_clouds()
   if sun then
    sun.kill()
   end
@@ -589,49 +608,50 @@ function make_fight()
   obj.active = false
  end
 
- local function jump_to(sprite,to_x,jump_sprites,skip_jump_anticipation)
-  sprite.scale_x=4
-  sprite.scale_y=4
+ local function jump_to(sprite,to_x,jump_sprites,skip_jump_anticipation,airtime)
+  airtime = airtime or 10
+  sprite.scale_x=sprite.scale
+  sprite.scale_y=sprite.scale
   sprite.anchor_y=1
-  sprite.y+=16
+  sprite.y+=sprite.scale*4
 
   local jump = function()
    sprite.anchor_y=0
-   sprite.y-=32
-   tweens.make(sprite,'x',to_x,10)
-   tweens.make(sprite,'scale_x',3.5,3).next(function()
-    return tweens.make(sprite,'scale_x',4,3)
+   sprite.y-=sprite.scale*8
+   tweens.make(sprite,'x',to_x,airtime)
+   tweens.make(sprite,'scale_x',sprite.scale*.875,airtime/10*3).next(function()
+    return tweens.make(sprite,'scale_x',sprite.scale,airtime/10*3)
    end)
 
-   local smooshing = tweens.make(sprite,'scale_y',5,3).next(function()
-    return tweens.make(sprite,'scale_y',3.5,3,'cubic',{
+   local smooshing = tweens.make(sprite,'scale_y',sprite.scale*1.25,airtime/10*3).next(function()
+    return tweens.make(sprite,'scale_y',sprite.scale*.875,airtime/10*3,'cubic',{
      ease_out=true
     })
    end).next(function()
-    return tweens.make(sprite,'scale_y',4,4,'cubic')
+    return tweens.make(sprite,'scale_y',sprite.scale,airtime/10*4,'cubic')
    end)
 
-   local jumping = tweens.make(sprite,'y',sprite.y-10,5,'quadratic',{
+   local jumping = tweens.make(sprite,'y',sprite.y-airtime,airtime/10*5,'quadratic',{
     ease_out=true
    }).next(function()
     sprite.sprite_id = jump_sprites[2]
-    return tweens.make(sprite,'y',ofpy-16,5,'quadratic')
+    return tweens.make(sprite,'y',ofpy-sprite.scale*4,airtime/10*5,'quadratic')
    end).next(function()
     sprite.anchor_y=1
-    sprite.y+=32
-    tweens.make(sprite,'scale_x',5.5,2,'quadratic',{ease_out=true})
-    return tweens.make(sprite,'scale_y',2.8,2,'quadratic',{ease_out=true})
+    sprite.y+=sprite.scale*8
+    tweens.make(sprite,'scale_x',sprite.scale*1.25,2,'quadratic',{ease_out=true})
+    return tweens.make(sprite,'scale_y',sprite.scale*.7,2,'quadratic',{ease_out=true})
    end).next(function()
     sprite.sprite_id = jump_sprites[3]
-    tweens.make(sprite,'scale_x',4,4,'quadratic')
-    return tweens.make(sprite,'scale_y',4,4,'quadratic')
+    tweens.make(sprite,'scale_x',sprite.scale,4,'quadratic')
+    return tweens.make(sprite,'scale_y',sprite.scale,4,'quadratic')
    end)
 
    return promises.all({jumping,smooshing}).next(function()
     sprite.scale_x = nil
     sprite.scale_y = nil
     sprite.anchor_y= nil
-    sprite.y-=16
+    sprite.y-=sprite.scale*4
    end)
   end
 
@@ -640,11 +660,11 @@ function make_fight()
    sprite.sprite_id = jump_sprites[1]
    return jump()
   else
-   tweens.make(sprite,'scale_x',6,4)
-   return tweens.make(sprite,'scale_y',3,4).next(function()
+   tweens.make(sprite,'scale_x',sprite.scale*1.5,4)
+   return tweens.make(sprite,'scale_y',sprite.scale*.75,4).next(function()
     sprite.sprite_id = jump_sprites[1]
-    tweens.make(sprite,'scale_x',4,2)
-    return tweens.make(sprite,'scale_y',4,2)
+    tweens.make(sprite,'scale_x',sprite.scale,2)
+    return tweens.make(sprite,'scale_y',sprite.scale,2)
    end).next(jump)
   end
  end
@@ -824,21 +844,156 @@ function make_fight()
   end
  end
 
- local function fwin()
-  if inventory.current_store_index > 4 then
-   queue_text(function()
-    color(11)
-    print("you win! <3 <3 <3")
-    print("i haven't gotten this far")
-    print("with the programming but")
-    print("good job! :d")
-    delays.make(0).next(function()
-     while true do
-     end
-    end)
-   end)
-  end
+ local function victory(tween)
+  tween.next(function(heart)
+   enemy.sprite_id = 5
+   heart.kill()
+   enemy.z = 50
+   fighter.sprite_id = 2
+   return tweens.make(enemy,'y',ofpy,20)
+  end).next(function()
+   fighter.sprite_id = 0
+   enemy.flip=true
+   enemy.sprite_id = 4
+   enemy.walking=true
+   fighter.walking=true
+   inventory.clear_hearts()
+   return promises.all({
+    tweens.make(fighter,'x',cam.x+128+16,30),
+    tweens.make(enemy,'x',cam.x+128+16+(enemy.x-fighter.x),30)
+   })
+  end).next(function()
+   tweens.make(sun,'y',24,80,'quadratic')
+   return delays.make(40)
+  end).next(function()
+   dusk=true
+   return delays.make(20)
+  end).next(function()
+   dusk = false
+   night = true
+   kill_clouds()
 
+   local moon = sprites.make(75,{x=40,y=-8,z=1,relative_to_cam=true,centered=true,rounded_position=true})
+   return tweens.make(moon,'y',24,120)
+  end).next(function(moon)
+   moon.kill()
+   sun.y=-8
+   delays.make(20).next(function()
+    night=false
+    dusk=true
+    for i=1,2 do make_cloud() end
+    return delays.make(20)
+   end).next(function()
+    dusk=false
+   end)
+   return tweens.make(sun,'y',5,120,'quadratic',{ease_out=true})
+  end).next(function()
+   local loop_bubble
+   loop_bubble = function(sprite,y_offset)
+    y_offset = y_offset or 0
+    local heart = sprites.make(10,{x=sprite.x,y=sprite.y+y_offset,z=110,centered=true})
+    promises.all({
+     tweens.make(heart,'y',heart.y-15,15),
+     tweens.make(heart,'scale',sprite.scale/2,10,'quadratic')
+    }).next(heart.kill)
+    delays.make(rnd()*10+5).next(function()
+     loop_bubble(sprite,y_offset)
+    end)
+   end
+   loop_bubble(fighter,-8)
+   loop_bubble(enemy,-8)
+
+   fighter.x=cam.x+128+16
+   fighter.flip=true
+   enemy.x=fighter.x+20
+   enemy.flip=false
+   local kids = {}
+   local kid
+   local dur=200
+   local full_end_offset = cam.x+16
+   local stop_walking = function(sprit)
+    sprit.walking=false
+   end
+   local stop_and_turn = function(spp)
+    spp.flip= not spp.flip
+    stop_walking(spp)
+   end
+   local trots = {
+    tweens.make(fighter,'x',full_end_offset,dur).next(stop_and_turn),
+    tweens.make(enemy,'x',full_end_offset+20,dur).next(stop_walking)
+   }
+   local trots = {}
+   local scale_multiplier = 1
+   local offset = 10
+   for i=1,4 do
+    scale_multiplier*= rnd()
+    offset+=6*(2+scale_multiplier)
+    kid=sprites.make(0,{x=enemy.x+offset,y=enemy.y+16,z=45})
+    if rnd()<0.5 then
+     kid.walking_frames=fighter.walking_frames
+     kid.flip=true
+
+     add(trots,tweens.make(kid,'x',full_end_offset+20+offset,dur).next(function(k)
+      stop_walking(k)
+      local jloop
+      jloop = function()
+       local jump_sprites
+       local x = mid(k.x+rnd()*30-15,cam.x+60,cam.x+120)
+       if x > k.x then
+        jump_sprites = {2,1,0}
+        k.flip=false
+       else
+        jump_sprites = {1,2,0}
+        k.flip=true
+       end
+
+       return jump_to(k,x,jump_sprites,true,5+rnd()*5).next(jloop)
+      end
+      jloop()
+     end))
+    else
+     kid.sprite_id = 4
+     kid.walking_frames=enemy.walking_frames
+     kid.anchor_x=0.625
+
+     add(trots,tweens.make(kid,'x',full_end_offset+20+offset,dur).next(function(k)
+      stop_walking(k)
+      local jloop
+      jloop = function()
+       local jump_sprites
+       local x = mid(k.x+rnd()*30-15,cam.x+60,cam.x+120)
+       if x > k.x then
+        jump_sprites = {6,5,4}
+        k.flip=true
+       else
+        jump_sprites = {5,6,4}
+        k.flip=false
+       end
+
+       return jump_to(k,x,jump_sprites,true,5+rnd()*5).next(jloop)
+      end
+      jloop()
+     end))
+    end
+    kid.walking=true
+    kid.scale=2+scale_multiplier
+    kid.anchor_y=1
+    kid.centered=true
+    kid.walking_scale=2
+    loop_bubble(kid,-6*kid.scale)
+   end
+   return promises.all(trots)
+  end).next(function()
+   color(8)
+   print "as you smile at your family"
+   print "your heart overflows with joy"
+   color(11)
+   print "congratulations!"
+   print "ctrl+r to live it again"
+  end)
+ end
+
+ local function fwin()
   local winwait=60
   local win_sprite_id = ({39,40,38,41,10})[inventory.current_store_index]
   local win_heart = sprites.make(win_sprite_id,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
@@ -859,23 +1014,24 @@ function make_fight()
     winwait-=1
    end
   end
-  local float = tweens.make(enemy,'y',enemy.y-4,50,'quadratic')
-  float.on_complete = function()
+  local trophy_spin = tweens.make(enemy,'y',enemy.y-4,50,'quadratic').next(function()
+   fanim = noop_f
    fighter.sprite_id = 0
-   enemy.kill()
+   if inventory.current_store_index < 5 then
+    enemy.kill()
+   end
    kiss=false
-   local slide_out = tweens.make(win_heart,'x',fighter.x-32,12,'circular')
-   slide_out.ease_out = true
-   slide_out.on_complete = function()
+   tweens.make(win_heart,'x',fighter.x-32,12,'circular',{ease_out=true}).next(function()
     win_heart.z = 120
     tweens.make(win_heart,'x',fighter.x,12,'circular')
-   end
-   local slide_down = tweens.make(win_heart,'y',fighter.y+18,12,'circular')
-   slide_down.ease_out = true
-   slide_down.on_complete = function()
+   end)
+   tweens.make(win_heart,'y',fighter.y+18,12,'circular',{ease_out=true}).next(function()
     tweens.make(win_heart,'y',fighter.y,12,'circular')
-   end
-   tweens.make(win_heart,'scale',1,24,'quadratic').next(function()
+   end)
+   return tweens.make(win_heart,'scale',1,24,'quadratic')
+  end)
+  if inventory.current_store_index < 5 then
+   trophy_spin.next(function()
     win_heart.kill()
     fighter.sprite_id = 2
     inventory.increment_store()
@@ -883,6 +1039,8 @@ function make_fight()
    end).next(function()
     return delays.make(10)
    end).next(exit_battle)
+  else
+   victory(trophy_spin)
   end
  end
 
@@ -1243,7 +1401,6 @@ function make_fight()
     if not sliding_store then
      sprites.draw(nil,19) --background sprites (ie, sun, clouds, etc)
     end
-
     palt(0,false)
     map(0,6,0,48,19,10) --bottom half of town
     --transition+beach
@@ -1267,13 +1424,26 @@ function make_fight()
      sprites.draw(20,nil) --foreground sprites
     end
    else
+    local pal_night = function()
+     if dusk then
+      pal(12,1)
+     elseif night then
+      pal(10,15)
+      pal(15,4)
+      pal(12,0)
+     end
+    end
+    pal_night()
     map(16+3,0,cam.x,0,16,2) --sky
+    pal()
     sprites.draw(nil,10) --clouds,sun
     palt(0,false)
+    pal_night()
     map(19,2,cam.x,16,16,7) --beach
     if intro_store then
      map(35,0,cam.x,intro_store.y,16,6) --store
     end
+    pal()
     palt()
     draw_fui()
     map(19,6,cam.x,intro_textbox.y,16,10) --transparent textbox
@@ -1861,6 +2031,11 @@ make_enemy = function(player,attributes)
      lower_stat('closeness')
     end
    end
+   enemy_inv = make_inventory(true)
+   obj.hp=2
+   for i=1,obj.hp do
+    enemy_inv.add_heart()
+   end
   end
   for i=1,4 do
    inventory.add_heart()
@@ -2205,22 +2380,22 @@ b3c5f445f4454445f445f33b34b5f4534b35f445f4454b34594774959f949f949dc7c7d40ee02002
 535353545455453d53553d35d5d5d5d5f440f440f64440049a8888092e9999a21aaccaa13bbbbbb377757776777577767775777621212121f64444543533f433
 3535433435d33543554453435d515d51ff40f440f440000598888a092ee999921caaaac13bbbbbb377777776777777767777777612101220f4444455433bf455
 54335445353535354535335315101510000000002220222099999999222222221111111133333333666666666666666666666666010001002220222043bff445
-0000000048d2d2c448d4e2c4cc9ccc9c4e95245911111111ccccccccaaaaaaaa66656665aa565565001221222212212222aafaaaaaaaaaaaaaaaaa7a00000000
-00000000439be834439238349cca99cce495425911111c11ccccccccaaaaaafa66655555a6655666001221222212212222aaaaaaaaaaaaaaaaaaa66600000000
-000000004353335443333534c9aaaac9449544591c111111ccccccccaafaaaaa66656665a5566657001221222212212222122aafaaaaaaaaaaaa665700000000
-400000004eeebeee43593394c9aa7aac44954459111aa11cccccccccaaaaaaaa55556665a6665565000001222212212222122aaaaaaaafaaaaa6556500000000
-0fb0f0ae2000200041c3e2d4caa7aa9c4e952459aaaaaaaaccccccccaaaafaaa66656665a5555766000001222212212222122faaaaaaaaaaaa65576600000000
-00bbbfca2212222143233c349caaaa9ce4954259afaaaaaaccccccccaaaaaaaa66655555aa566656000000002212212222122122aafaaaaaaa65665600000000
-4f3b38fa221222e143535354cc99acc944954459aaaaafaaccccccccafaaaaaa66656665a6665555000000002212212222122122aaaaaaaaa656555500000000
-00000000ee0eee004f4ff4f4c9ccc9cc44954459aaaaaaaaccccccccaaaaaaaf55556665a5557666afaaaafa2212212222122122aaaaaaaaa565766600000000
-0007777006006770000000000000000000000000000000000000000000000000439324594e952459777700000000000000000000000000000000000000000000
-06777600007777000777760700000000000000000000000000000000000000003b3b3b59e4954259777700000000000000000000000000000000000000000000
-6760777067707770767777700000000000000000000000000000000000000000b3b3b35944954459000077770000000000000000000000000000000000000000
-77677677777777677776077700000000000000000000000000000000000000003b3b3b5944954459000077770000000000000000000000000000000000000000
-0777707007707776777777770000000000000000000000000000000000000000233332594e952459777700000000000000000000000000000000000000000000
-607677006670067067766777000000000000000000000000000000000000000012332159e4954259777700000000000000000000000000000000000000000000
-00000770006677000677776000000000000000000000000000000000000000004122145944004459000077770000000000000000000000000000000000000000
-00600000000000000000000000000000000000000000000000000000000000004411445940007459000077770000000000000000000000000000000000000000
+0000000048d2d2c448d4e2c4009000904e95245911111111ccccccccaaaaaaaa66656665aa565565001221222212212222aafaaaaaaaaaaaaaaaaa7a00000000
+00000000439be83443923834900a9900e495425911111c11ccccccccaaaaaafa66655555a6655666001221222212212222aaaaaaaaaaaaaaaaaaa66600000000
+00000000435333544333353409aaaa09449544591c111111ccccccccaafaaaaa66656665a5566657001221222212212222122aafaaaaaaaaaaaa665700000000
+400000004eeebeee4359339409aa7aa044954459111aa11cccccccccaaaaaaaa55556665a6665565000001222212212222122aaaaaaaafaaaaa6556500000000
+0fb0f0ae2000200041c3e2d40aa7aa904e952459aaaaaaaaccccccccaaaafaaa66656665a5555766000001222212212222122faaaaaaaaaaaa65576600000000
+00bbbfca2212222143233c3490aaaa90e4954259afaaaaaaccccccccaaaaaaaa66655555aa566656000000002212212222122122aafaaaaaaa65665600000000
+4f3b38fa221222e1435353540099a00944954459aaaaafaaccccccccafaaaaaa66656665a6665555000000002212212222122122aaaaaaaaa656555500000000
+00000000ee0eee004f4ff4f40900090044954459aaaaaaaaccccccccaaaaaaaf55556665a5557666afaaaafa2212212222122122aaaaaaaaa565766600000000
+0007777006006770000000000000000000000000000000000000000000000000439324594e952459777700000000560000000000000000000000000000000000
+06777600007777000777760700000000000000000000000000000000000000003b3b3b59e4954259777700000000076000000000000000000000000000000000
+6760777067707770767777700000000000000000000000000000000000000000b3b3b35944954459000077770000067500000000000000000000000000000000
+77677677777777677776077700000000000000000000000000000000000000003b3b3b5944954459000077770000057600000000000000000000000000000000
+0777707007707776777777770000000000000000000000000000000000000000233332594e952459777700000000567600000000000000000000000000000000
+607677006670067067766777000000000000000000000000000000000000000012332159e4954259777700000005677500000000000000000000000000000000
+00000770006677000677776000000000000000000000000000000000000000004122145944004459000077770576775000000000000000000000000000000000
+00600000000000000000000000000000000000000000000000000000000000004411445940007459000077770007750000000000000000000000000000000000
 ee2888888888222772228888888882ee700000007777777700000007700000000000000000000007000000000000000000000000000000000000000000000000
 eeeee8888222277777722228888eeeee700000000000000000000007700000000000000000000007000000000000000000000000000000000000000000000000
 8eeeeee827777700007777728eeeeee8700000000000000000000007700000000000000000000007000000000000000000000000000000000000000000000000

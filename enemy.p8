@@ -483,6 +483,11 @@ make_enemy = function(player,attributes)
           lower_stat('closeness')
         end
       end
+      enemy_inv = make_inventory(true)
+      obj.hp=2
+      for i=1,obj.hp do
+        enemy_inv.add_heart()
+      end
     end
     for i=1,4 do
       inventory.add_heart()
