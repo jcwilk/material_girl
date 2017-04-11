@@ -33,6 +33,7 @@ function make_fight()
   local sliding_store = false
   local night=false
   local dusk=false
+  local store_id
 
   local function calc_fighter_x()
     return flr(enemy_data.closeness*(enemy_data.base_x-ofpx-16)+ofpx+0.5)
@@ -238,7 +239,7 @@ function make_fight()
 
       queue_text(function()
         reset_combat_cursor()
-        if inventory.current_store_index <= 4 then
+        if store_id <= 4 then
           color(12)
           print "welcome, see how this fits"
         else
@@ -466,9 +467,9 @@ function make_fight()
 
   local function fwin()
     local winwait=60
-    local win_sprite_id = ({39,40,38,41,10})[inventory.current_store_index]
+    local win_sprite_id = ({39,40,38,41,10})[store_id]
     local win_heart = sprites.make(win_sprite_id,{x=fighter.x+16,y=enemy.y+8,scale=8,centered=true,z=40})
-    if inventory.current_store_index < 5 then
+    if store_id < 5 then
       win_heart.before_draw = function()
         palt(0,false)
       end
@@ -488,7 +489,7 @@ function make_fight()
     local trophy_spin = tweens.make(enemy,'y',enemy.y-4,50,'quadratic').next(function()
       fanim = noop_f
       fighter.sprite_id = 0
-      if inventory.current_store_index < 5 then
+      if store_id < 5 then
         enemy.kill()
       end
       kiss=false
@@ -501,7 +502,7 @@ function make_fight()
       end)
       return tweens.make(win_heart,'scale',1,24,'quadratic')
     end)
-    if inventory.current_store_index < 5 then
+    if store_id < 5 then
       trophy_spin.next(function()
         win_heart.kill()
         fighter.sprite_id = 2
@@ -692,7 +693,7 @@ function make_fight()
   end
 
   local function detect_keys()
-    if inventory.current_store_index >= 3 and btn(0) and not btn(1) and not btn(2) then
+    if store_id >= 3 and btn(0) and not btn(1) and not btn(2) then
       press_key(43,25,61)
       enemy_data.withdraw()
       return true
@@ -703,7 +704,7 @@ function make_fight()
       return true
     end
     just_jumped=false
-    if inventory.current_store_index >= 2 and btn(2) and not btn(0) and not btn(1) then
+    if store_id >= 2 and btn(2) and not btn(0) and not btn(1) then
       press_key(42,46,53)
       enemy_data.dazzle()
       return true
@@ -757,11 +758,11 @@ function make_fight()
   local function draw_fui()
     if not fanim then
       color(7)
-      if inventory.current_store_index >= 3 then
+      if store_id >= 3 then
         spr(43,cam.x+25,cam.y+61)
         print("withdraw",cam.x+34,cam.y+63)
       end
-      if inventory.current_store_index >= 2 then
+      if store_id >= 2 then
         spr(42,cam.x+46,cam.y+53)
         print("dazzle",cam.x+55,cam.y+55)
       end
@@ -817,7 +818,7 @@ function make_fight()
 
         map(19,6,cam.x,intro_textbox.y,16,10) --textbox
         if intro_store then
-          map(35,0,cam.x,intro_store.y,16,6) --sliding down store
+          map(35,6*store_id-6,cam.x,intro_store.y,16,6) --sliding down store
         end
         palt()
 
@@ -842,7 +843,7 @@ function make_fight()
         pal_night()
         map(19,2,cam.x,16,16,7) --beach
         if intro_store then
-          map(35,0,cam.x,intro_store.y,16,6) --store
+          map(35,6*store_id-6,cam.x,intro_store.y,16,6) --store
         end
         pal()
         palt()
@@ -859,6 +860,7 @@ function make_fight()
   end
 
   local function start_common()
+    store_id=inventory.current_store_index
     cfpx=calc_fighter_x()
 
     player.kill()

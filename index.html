@@ -3,7 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport"
+  content="width=512, initial-scale=1.0, user-scalable=no">
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
     <title>Material Girl</title>
 
@@ -83,30 +84,30 @@ td.arrow {
 	</STYLE>
   </head>
   <body>
-  	<nav class="navbar navbar-default">
-		  <div class="container-fluid">
-		    <div class="navbar-header">
-		      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
-		        <span class="sr-only">Toggle navigation</span>
-		        <span class="icon-bar"></span>
-		        <span class="icon-bar"></span>
-		        <span class="icon-bar"></span>
-		      </button>
-		      <a class="navbar-brand" href="#">Material Girl</a>
-		    </div>
-
-		    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
-		      <ul class="nav navbar-nav">
-		        <li class="active"><a href="#">Game <span class="sr-only">(current)</span></a></li>
-		        <li><a href="http://github.com/jcwilk/material_girl">Source</a></li>
-		      </ul>
-		    </div>
-		  </div>
-		</nav>
-
-    <div class="pull-left">
+  	<div class="pull-left">
 	  	<!-- START PICO JUNK/////////////////////////////////////// -->
      	<center><div style="width:512px;">
+      <div class=pico8_el onclick="Module.pico8Reset();">
+
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAaklEQVR4Ae2dOwoAMQhE15A+rfc/3bZ7AlMnQfywCkKsfcgMM9ZP+QHtIn0vLeBAFduiFdQ/0DmvtR5LXJ6CPSXe2ZXcFNlTxFbemKrbZPs35XogeS9xeQr+anT6LzoOwEDwZJ7jwhXUnwkTTiDQ2Ja34AAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Reset" width=12 height=  12/>
+
+      Reset</div>
+
+      <div class=pico8_el onclick="Module.pico8TogglePaused();">
+
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAPUlEQVR4Ae3doQ0AIAxEUWABLPtPh2WCq26DwFSU/JPNT166QSu/Hg86W9dwLte+diP7AwAAAAAAgD+A+jM2ZAgo84I0PgAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Pause" width=12 height=12/>
+
+      Pause</div>
+      <div class=pico8_el onclick="Module.requestFullScreen(true, false);">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAaklEQVR4Ae2dsQ1AIQhExfze1v2ns3UCrfgFhmgUUAoGgHscp21wX9BqaZoDojbB96OkDJKNcTN2BHTyYNYmoT2BlPL7BKgcPfHjAVXKKadkHOn9K1r16N0czN6a95N8mnA7Aq2fTZ3Af3UKmCSMazL8HwAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Fullscreen" width=12 height=12/>
+
+      Fullscreen</div>
+      <div class=pico8_el onclick="Module.pico8ToggleSound();">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAXklEQVR4Ae2doQ4AIQxD4YLH8v9fh+ULhjpxxSwLg2uyapr1JRu1iV5Z+1BGl4+xNpX38SYo2uRvYiT5LwEmt+ocgXVLrhPEgBiw8Q5w7/kueSkK+D2tJO4E/I3GrwkqQCBabEj/4QAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Toggle Sound" width=12 height=12/>
+
+      Sound</div>
+
+      <br>
 
 			<canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
 
@@ -134,7 +135,7 @@ td.arrow {
 				*/
 			</script>
 
-			<script async type="text/javascript" src="./material_girl.js?v1"></script>
+			<script async type="text/javascript" src="./material_girl.js?v2"></script>
 
 			<script>
 				// key blocker. prevent cursor keys from scrolling page while playing cart.
@@ -157,36 +158,14 @@ td.arrow {
 
 			<br>
 
-			<div class=pico8_el onclick="Module.pico8Reset();">
-
-			<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAaklEQVR4Ae2dOwoAMQhE15A+rfc/3bZ7AlMnQfywCkKsfcgMM9ZP+QHtIn0vLeBAFduiFdQ/0DmvtR5LXJ6CPSXe2ZXcFNlTxFbemKrbZPs35XogeS9xeQr+anT6LzoOwEDwZJ7jwhXUnwkTTiDQ2Ja34AAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Reset" width=12 height=	12/>
-
-			Reset</div>
-
-			<div class=pico8_el onclick="Module.pico8TogglePaused();">
-
-			<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAPUlEQVR4Ae3doQ0AIAxEUWABLPtPh2WCq26DwFSU/JPNT166QSu/Hg86W9dwLte+diP7AwAAAAAAgD+A+jM2ZAgo84I0PgAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Pause" width=12 height=12/>
-
-			Pause</div>
-			<div class=pico8_el onclick="Module.requestFullScreen(true, false);">
-			<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAaklEQVR4Ae2dsQ1AIQhExfze1v2ns3UCrfgFhmgUUAoGgHscp21wX9BqaZoDojbB96OkDJKNcTN2BHTyYNYmoT2BlPL7BKgcPfHjAVXKKadkHOn9K1r16N0czN6a95N8mnA7Aq2fTZ3Af3UKmCSMazL8HwAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Fullscreen" width=12 height=12/>
-
-			Fullscreen</div>
-			<div class=pico8_el onclick="Module.pico8ToggleSound();">
-			<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAXklEQVR4Ae2doQ4AIQxD4YLH8v9fh+ULhjpxxSwLg2uyapr1JRu1iV5Z+1BGl4+xNpX38SYo2uRvYiT5LwEmt+ocgXVLrhPEgBiw8Q5w7/kueSkK+D2tJO4E/I3GrwkqQCBabEj/4QAAABB0RVh0TG9kZVBORwAyMDExMDIyMeNZtsEAAAAASUVORK5CYII=" alt="Toggle Sound" width=12 height=12/>
-
-			Sound</div>
-
-			<br>
-
 			</div></center>
 			<!-- END PICO JUNK/////////////////////////////////////// -->
 		</div>
 
 		<div class="pull-left panel panel-primary" style="width: 192px; margin-right: 10px">
-		  <div class="panel-heading">
-		    <h3 class="panel-title">Mobile D-Pad</h3>
-		  </div>
+      <div class="panel-heading">
+        <h3 class="panel-title">Mobile D-Pad</h3>
+      </div>
 		  <div class="panel-body" style="padding: 0">
 		  	<table id="dpad">
 		  		<tr><td></td><td id="up-arrow" class="arrow"></td><td></td></tr>
@@ -196,20 +175,23 @@ td.arrow {
 		  </div>
 		</div>
 
-		<div class="pull-left panel panel-primary" style="max-width: 192px">
+		<div class="pull-left panel panel-primary" style="max-width: 310px">
 		  <div class="panel-heading">
 		    <h3 class="panel-title">Instructions</h3>
 		  </div>
 		  <div class="panel-body">
 		  	<p>
-		  		Use the arrow keys on your keyboard, or if you're on mobile you can use the on-page mobile dpad.
+		  		If you're on mobile you should play vertically in portrait orientation and use the on-page mobile dpad to the left.
 		  	</p>
 		    <p>
-		    	If you have a keyboard, it's recommended to use Fullscreen for the best experience.
+		    	If you're on a laptop/desktop or have a keyboard, it's recommended to use Fullscreen for the best experience. Only the arrow keys are required.
 		    </p>
 		    <p>
 		    	Is the game failing to load? Try <a href="./material_girl.html">the basic web player</a>.
 		    </p>
+        <p>
+          Check out the Pico-8 cartridge code <a href="http://github.com/jcwilk/material_girl">here</a>
+        </p>
 		  </div>
 		</div>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
@@ -218,7 +200,11 @@ td.arrow {
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
     <script>
     	$(document).ready(function(){
-    		pico8_buttons = [0]
+        document.body.addEventListener('touchmove', function(event) {
+          event.preventDefault();
+        }, false);
+
+        pico8_buttons = [0];
 
     		var id_to_bit = function(id){
 	    		switch(id) {
