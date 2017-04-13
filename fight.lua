@@ -88,6 +88,7 @@ function make_fight()
     sprite.y+=sprite.scale*4
 
     local jump = function()
+      sfx(9)
       sprite.anchor_y=0
       sprite.y-=sprite.scale*8
       tweens.make(sprite,'x',to_x,airtime)
@@ -174,10 +175,12 @@ function make_fight()
     fanim = noop_f
 
     local duration = (enemy.x-fighter.x+12)/4
-
+    sfx(12,0)
     tweens.make(enemy,'x',fighter.x+12,duration,'quadratic').on_complete = function()
       enemy.sprite_id = 6
       enemy.walking=false
+      sfx(-1,0)
+      sfx(15)
 
       enemy_data.current_action.middle()
 
@@ -220,19 +223,17 @@ function make_fight()
   local function fintro()
     reset_doors()
     fanim=noop_f
-    tweens.make(fighter,'x',cfpx,20)
+    sfx(12)
+    tweens.make(fighter,'x',cfpx,30)
     tweens.make(fighter,'y',ofpy,40,'quadratic')
     tweens.make(fighter,'scale',4,40,'quadratic').next(function()
       fighter.walking = false
       fighter.walking_scale=8
       enemy.hide = false
       enemy.walking=true
-      --tweens.make(enemy,'scale',4,20,'quadratic').ease_out = true
-      return tweens.make(enemy,'x',enemy_data.base_x,40,'quadratic',{
-        ease_out=true
-      })
+      sfx(12)
+      return tweens.make(enemy,'x',enemy_data.base_x,40,'quadratic',{ease_out=true})
     end).next(function()
-      --enemy_data.intro_speech()
       intro_slide = false
       enemy.walking=false
       fanim=false
@@ -330,6 +331,7 @@ function make_fight()
       enemy.walking=true
       fighter.walking=true
       inventory.clear_hearts()
+      sfx(12)
       return promises.all({
         tweens.make(fighter,'x',cam.x+128+16,30),
         tweens.make(enemy,'x',cam.x+128+16+(enemy.x-fighter.x),30)
@@ -487,6 +489,7 @@ function make_fight()
       end
     end
     local trophy_spin = tweens.make(enemy,'y',enemy.y-4,50,'quadratic').next(function()
+      sfx(11)
       fanim = noop_f
       fighter.sprite_id = 0
       if store_id < 5 then
@@ -539,6 +542,7 @@ function make_fight()
     approach.next(function()
       fighter.walking=false
       kiss=flr(rnd()*5+11)
+      sfx(13)
       return delays.make(20)
     end).next(function()
       enemy_data.current_action.middle()
@@ -565,8 +569,6 @@ function make_fight()
 
   local function fmagic()
     local spinx = fighter.x
-    --fighter.sprite_id = 1
-
     local already_full = enemy_data.attraction >= 1
 
     fanim = noop_f
@@ -581,6 +583,7 @@ function make_fight()
       fighter.scale_x = 4
       fighter.anchor_x = 0.68
       local spinning = {delay=5,alive=true,tween=nil}
+      sfx(14)
       local fighter_promise = tweens.make(spinning,'delay',1,10+5*projectile_count,'quadratic',{
         ease_out=true,
         rounding=true
@@ -626,6 +629,7 @@ function make_fight()
         end)
         if not already_full then
           last_heart_promise = last_heart_promise.next(function(h)
+            sfx(15)
             enemy.x+=4
             enemy.sprite_id = 6
             h.z-= 60
@@ -675,6 +679,7 @@ function make_fight()
         tweens.make(fighter,'y',fighter.y-24,40)
         tweens.make(fighter,'scale',1,40,'quadratic').ease_out = true
       end
+      sfx(12)
       return tweens.make(fighter,'x',-16,40,'quadratic')
     end).next(function()
       return delays.make(30)

@@ -222,6 +222,7 @@ function _update()
     sprites.draw()
 
     if not intro_landing and (btn(0) or btn(1) or btn(2) or btn(3)) then
+      sfx(10)
       intro_landing=true
       player.sprite_id=2
       local faketile=sprites.make(90,{x=50,y=75-128,z=5})
