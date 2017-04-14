@@ -63,7 +63,6 @@ id_f = function(val)
  return val
 end
 
---all4tehtokens
 function bubble_sort(t, field, default)
  if #t > 1 then
   local do_pass = function()
@@ -143,7 +142,6 @@ promises = {
   local resolved = false
   local value = nil
 
-  -- https://promisesaplus.com/#point-45
   local promise_resolution = function(promise,x)
    if type(x) == 'table' and type(x.next) == 'function' then
     x.next(function(v)
@@ -216,7 +214,6 @@ delays = {
   return promise
  end
 }
-
 -- end ext
 
 -- START LIB

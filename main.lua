@@ -7,11 +7,7 @@ function sprite_collided(x,y)
 end
 
 function solid_px(x,y)
-  return check_px(x,y,1)
-end
-
-function check_px(x,y,bit)
-  return check_tile(flr(x/8),flr(y/8),bit)
+  check_tile(flr(x/8),flr(y/8),1)
 end
 
 local door_data
@@ -21,27 +17,27 @@ function calc_doors()
   if door_data then
     return door_data
   end
-  local store_id = inventory.current_store()
+  local store_id = inventory.current_store_index
   door_data = {
     {
       x=4,
       y=4,
-      open=store_id==1
+      open=store_id==4
     },
     {
       x=12,
       y=5,
-      open=store_id==3
+      open=store_id==2
     },
     {
       x=3,
       y=11,
-      open=store_id==2
+      open=store_id==1
     },
     {
       x=11,
       y=10,
-      open=store_id==4
+      open=store_id==3
     }
   }
   return door_data
@@ -75,7 +71,7 @@ function entered_door(x,y)
     return false
   end
   if door.x*8 <= x+3 and door.x*8 >= x-3 and y <= door.y*8+11 and y >= door.y*8-11 then
-    return inventory.current_store()
+    return inventory.current_store_index
   end
   return false
 end

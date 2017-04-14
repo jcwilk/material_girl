@@ -12,7 +12,6 @@ id_f = function(val)
  return val
 end
 
---all4tehtokens
 function bubble_sort(t, field, default)
  if #t > 1 then
   local do_pass = function()
@@ -92,7 +91,6 @@ promises = {
   local resolved = false
   local value = nil
 
-  -- https://promisesaplus.com/#point-45
   local promise_resolution = function(promise,x)
    if type(x) == 'table' and type(x.next) == 'function' then
     x.next(function(v)
@@ -165,7 +163,6 @@ delays = {
   return promise
  end
 }
-
 -- end ext
 
 -- start ext ./sprites.p8
@@ -352,25 +349,11 @@ tweens = {
 function make_inventory(is_for_enemy)
  local owned_hearts = {}
  local obj
- local choose = function(map,min_index)
-  return function()
-   if min_index < obj.current_store_index then
-    return map[4]
-   else
-    return map[1]
-   end
-  end
- end
  obj = {
   store_sprite_map = {41,39,40,38},
   hearts_count = 0,
   current_store_index = 1
  }
-
- obj.current_store = function()
-  -- lipstick, ring, shoes, dress
-  return ({2,3,4,1})[obj.current_store_index]
- end
 
  obj.increment_store = function()
   obj.current_store_index+=1
@@ -382,7 +365,6 @@ function make_inventory(is_for_enemy)
    heart = sprites.make(10,{x=123-9*obj.hearts_count,y=-12,z=200})
    heart.before_draw = function()
     pal(8,5)
-    --pal(1,5)
    end
   else
    heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})
@@ -447,9 +429,9 @@ end
 
 -- start ext fight.lua
 function make_fight()
- local obj, fanim, first_draw, kiss --misc fight state
- local ofpx, ofpy, cfpx --player state
- local fighter, enemy --sprites
+ local obj, fanim, first_draw, kiss
+ local ofpx, ofpy, cfpx
+ local fighter, enemy
  local enemy_data
  local text_needs_clearing
  local intro_slide
@@ -457,7 +439,7 @@ function make_fight()
  local game_over
  local clouds = make_pool()
  local sun
- local just_jumped = false --fancy bounce animation
+ local just_jumped = false
  local sliding_store = false
  local night=false
  local dusk=false
@@ -639,9 +621,8 @@ function make_fight()
    z=9+prox,
    centered=true,
    scale_x=prox*6+2,
-   scale_y=2, --rnd()+1,
+   scale_y=2,
    rounded_scale=true,
-   --scale=prox+1,
    relative_to_cam=true
   })
   clouds.make(cloud)
@@ -674,11 +655,11 @@ function make_fight()
     reset_combat_cursor()
     if store_id <= 4 then
      color(12)
-     print "welcome, see how this suits you"
+     print "wELCOME, SEE HOW THIS SUITS YOU"
     else
      color(14)
-     print "he's absolutely stunning. it's"
-     print "all been building up to this"
+     print "hE'S ABSOLUTELY STUNNING. iT'S"
+     print "ALL BEEN BUILDING UP TO THIS"
     end
    end)
   end)
@@ -765,13 +746,13 @@ function make_fight()
    fighter.walking=true
    inventory.clear_hearts()
    sfx(12,0)
-   music(0,0,8)
    return promises.all({
     tweens.make(fighter,'x',cam.x+128+16,30),
     tweens.make(enemy,'x',cam.x+128+16+(enemy.x-fighter.x),30)
    })
   end).next(function()
    sfx(-1,0)
+   music(0,0,8)
    tweens.make(sun,'y',24,80,'quadratic')
    return delays.make(40)
   end).next(function()
@@ -894,11 +875,11 @@ function make_fight()
    return promises.all(trots)
   end).next(function()
    color(8)
-   print "as you smile at your family"
-   print "your heart overflows with joy"
+   print "aS YOU SMILE AT YOUR FAMILY"
+   print "YOUR HEART OVERFLOWS WITH JOY."
    color(11)
-   print "congratulations!"
-   print "ctrl+r to live it again"
+   print "cONGRATULATIONS!"
+   print "cTRL+r TO LIVE IT AGAIN"
   end)
  end
 
@@ -1201,14 +1182,14 @@ function make_fight()
    color(7)
    if store_id >= 3 then
     spr(43,cam.x+25,cam.y+61)
-    print("withdraw",cam.x+34,cam.y+63)
+    print("wITHDRAW",cam.x+34,cam.y+63)
    end
    if store_id >= 2 then
     spr(42,cam.x+46,cam.y+53)
-    print("dazzle",cam.x+55,cam.y+55)
+    print("dAZZLE",cam.x+55,cam.y+55)
    end
    spr(44,cam.x+67,cam.y+61)
-   print("advance",cam.x+76,cam.y+63)
+   print("aDVANCE",cam.x+76,cam.y+63)
 
    reset_combat_cursor()
   end
@@ -1380,7 +1361,7 @@ function make_fight()
     walking_scale=8,
     scale=4
    })
-   player.y=mid(player.y-8,player.y+8,64) --move away from store
+   player.y=mid(player.y-8,player.y+8,64)
 
    start_common()
 
@@ -1407,33 +1388,33 @@ make_enemy = function(player,attributes)
   closeness={
    high=function()
     color(14)
-    print("just a little closer and he'll")
-    print("let me into his heart")
+    print("jUST A LITTLE CLOSER AND HE'LL")
+    print("LET ME INTO HIS HEART.")
    end,
    mid=function()
     color(14)
-    print("there's a divide between us but")
-    print("we're closer than we once were")
+    print("tHERE'S A DIVIDE BETWEEN US BUT")
+    print("WE'RE CLOSER THAN WE ONCE WERE.")
    end,
    low=function()
     color(14)
-    print("he feels so far away")
+    print("hE FEELS SO FAR AWAY...")
    end
   },
   attraction={
    high=function()
     color(12)
-    print("your beauty defies words")
-    print("my life begins today")
+    print("yOUR BEAUTY DEFIES WORDS.")
+    print("mY LIFE BEGINS TODAY.")
    end,
    mid=function()
     color(12)
-    print("you're quite fetching but")
-    print("i still have reservations")
+    print("yOU'RE QUITE FETCHING BUT")
+    print("i STILL HAVE RESERVATIONS.")
    end,
    low=function()
     color(12)
-    print("i'm sorry but you're not for me")
+    print("i'M SORRY BUT YOU'RE NOT FOR ME.")
    end
   },
   patience={
@@ -1441,7 +1422,7 @@ make_enemy = function(player,attributes)
    mid=noop_f,
    low=function()
     color(12)
-    print("your antics bore me")
+    print("yOUR ANTICS BORE ME.")
    end
   }
  }
@@ -1449,9 +1430,8 @@ make_enemy = function(player,attributes)
  local function queue_victory_text()
   queue_text(function()
    color(12)
-   print("your charm leaves me powerless")
-   print("consider it yours")
-   print("and remember me")
+   print("yOUR CHARM LEAVES ME POWERLESS.")
+   print("kEEP IT AND REMEMBER ME.")
   end)
  end
 
@@ -1503,7 +1483,6 @@ make_enemy = function(player,attributes)
   if obj[stat] < 0.0 then
    obj[stat] = 0
   end
-  --
   report_stat(stat)
  end
 
@@ -1558,17 +1537,17 @@ make_enemy = function(player,attributes)
    start = function()
     queue_text(function()
      color(14)
-     print "i guess this is the end..."
+     print "i GUESS THIS IS THE END..."
     end)
    end,
    middle = function()
     queue_text(function()
      color(14)
-     print "left forever to wonder"
-     print "where things went wrong"
+     print "i'M LEFT FOREVER TO WONDER"
+     print "WHERE THINGS WENT WRONG."
      color(8)
      print "game over"
-     print "ctrl+r to retry"
+     print "cTRL+r TO RETRY"
     end)
    end
   }
@@ -1601,13 +1580,13 @@ make_enemy = function(player,attributes)
    start = function()
     queue_text(function()
      color(12)
-     print "i've had enough of this"
+     print "i'VE HAD ENOUGH OF THIS."
     end)
    end,
    middle = function()
     queue_text(function()
      color(14)
-     print "so hurtful.."
+     print "hE CAN BE SO HURTFUL.."
     end)
     damage_player()
    end
@@ -1620,7 +1599,7 @@ make_enemy = function(player,attributes)
    start = function()
     queue_text(function()
      color(12)
-     print "do i mean nothing to you?"
+     print "dO i MEAN NOTHING TO YOU?"
     end)
    end,
    middle = function()
@@ -1674,7 +1653,6 @@ make_enemy = function(player,attributes)
      start=function()
      end,
      middle=function()
-
       lower_stat('attraction')
      end
     }
@@ -1692,20 +1670,20 @@ make_enemy = function(player,attributes)
      start = function()
       queue_text(function()
        color(14)
-       print("behold the power...")
+       print("bEHOLD THE POWER...")
       end)
      end,
      middle = function()
       if obj.attraction >= 1 then
        queue_text(function()
         color(14)
-        print("of my loveliness?")
+        print("OF MY LOVELINESS?")
        end)
        lower_stat('patience')
       else
        queue_text(function()
         color(14)
-        print("of my loveliness!")
+        print("OF MY LOVELINESS!")
        end)
        raise_stat('attraction')
        obj.patience = 1
@@ -1729,8 +1707,8 @@ make_enemy = function(player,attributes)
       middle = function()
        queue_text(function()
         color(14)
-        print("we've grown too close")
-        print("his eyes no longer sparkle")
+        print("wE'VE GROWN TOO CLOSE.")
+        print("hIS EYES NO LONGER SPARKLE.")
        end)
        lower_stat('attraction')
       end
@@ -1759,13 +1737,13 @@ make_enemy = function(player,attributes)
      start = function()
       queue_text(function()
        color(14)
-       print "*whistles*"
+       print "*wHISTLES*"
       end)
      end,
      middle = function()
       queue_text(function()
        color(14)
-       print "mwa! :*"
+       print "mWA!"
       end)
       obj.hp-=1
       if enemy_inv then
@@ -1839,8 +1817,8 @@ make_enemy = function(player,attributes)
   queue_victory_text = function()
    queue_text(function()
     color(12)
-    print "no one will ever compare"
-    print "let me be forever yours"
+    print "nO ONE COULD EVER COMPARE."
+    print "lET ME BE FOREVER YOURS."
    end)
   end
   enemy_inv = make_inventory(true)
@@ -1862,11 +1840,7 @@ function sprite_collided(x,y)
 end
 
 function solid_px(x,y)
- return check_px(x,y,1)
-end
-
-function check_px(x,y,bit)
- return check_tile(flr(x/8),flr(y/8),bit)
+ check_tile(flr(x/8),flr(y/8),1)
 end
 
 local door_data
@@ -1876,27 +1850,27 @@ function calc_doors()
  if door_data then
   return door_data
  end
- local store_id = inventory.current_store()
+ local store_id = inventory.current_store_index
  door_data = {
   {
    x=4,
    y=4,
-   open=store_id==1
+   open=store_id==4
   },
   {
    x=12,
    y=5,
-   open=store_id==3
+   open=store_id==2
   },
   {
    x=3,
    y=11,
-   open=store_id==2
+   open=store_id==1
   },
   {
    x=11,
    y=10,
-   open=store_id==4
+   open=store_id==3
   }
  }
  return door_data
@@ -1930,7 +1904,7 @@ function entered_door(x,y)
   return false
  end
  if door.x*8 <= x+3 and door.x*8 >= x-3 and y <= door.y*8+11 and y >= door.y*8-11 then
-  return inventory.current_store()
+  return inventory.current_store_index
  end
  return false
 end

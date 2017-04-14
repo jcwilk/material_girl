@@ -2,25 +2,11 @@
 function make_inventory(is_for_enemy)
   local owned_hearts = {}
   local obj
-  local choose = function(map,min_index)
-    return function()
-      if min_index < obj.current_store_index then
-        return map[4]
-      else
-        return map[1]
-      end
-    end
-  end
   obj = {
     store_sprite_map = {41,39,40,38},
     hearts_count = 0,
     current_store_index = 1
   }
-
-  obj.current_store = function()
-    -- lipstick, ring, shoes, dress
-    return ({2,3,4,1})[obj.current_store_index]
-  end
 
   obj.increment_store = function()
     obj.current_store_index+=1
@@ -32,7 +18,6 @@ function make_inventory(is_for_enemy)
       heart = sprites.make(10,{x=123-9*obj.hearts_count,y=-12,z=200})
       heart.before_draw = function()
         pal(8,5)
-        --pal(1,5)
       end
     else
       heart = sprites.make(10,{x=5+9*obj.hearts_count,y=-12,z=200})

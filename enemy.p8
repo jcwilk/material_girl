@@ -15,33 +15,33 @@ make_enemy = function(player,attributes)
     closeness={
       high=function()
         color(14)
-        print("just a little closer and he'll")
-        print("let me into his heart")
+        print("jUST A LITTLE CLOSER AND HE'LL")
+        print("LET ME INTO HIS HEART.")
       end,
       mid=function()
         color(14)
-        print("there's a divide between us but")
-        print("we're closer than we once were")
+        print("tHERE'S A DIVIDE BETWEEN US BUT")
+        print("WE'RE CLOSER THAN WE ONCE WERE.")
       end,
       low=function()
         color(14)
-        print("he feels so far away")
+        print("hE FEELS SO FAR AWAY...")
       end
     },
     attraction={
       high=function()
         color(12)
-        print("your beauty defies words")
-        print("my life begins today")
+        print("yOUR BEAUTY DEFIES WORDS.")
+        print("mY LIFE BEGINS TODAY.")
       end,
       mid=function()
         color(12)
-        print("you're quite fetching but")
-        print("i still have reservations")
+        print("yOU'RE QUITE FETCHING BUT")
+        print("i STILL HAVE RESERVATIONS.")
       end,
       low=function()
         color(12)
-        print("i'm sorry but you're not for me")
+        print("i'M SORRY BUT YOU'RE NOT FOR ME.")
       end
     },
     patience={
@@ -49,7 +49,7 @@ make_enemy = function(player,attributes)
       mid=noop_f,
       low=function()
         color(12)
-        print("your antics bore me")
+        print("yOUR ANTICS BORE ME.")
       end
     }
   }
@@ -57,9 +57,8 @@ make_enemy = function(player,attributes)
   local function queue_victory_text()
     queue_text(function()
       color(12)
-      print("your charm leaves me powerless")
-      print("consider it yours")
-      print("and remember me")
+      print("yOUR CHARM LEAVES ME POWERLESS.")
+      print("kEEP IT AND REMEMBER ME.")
     end)
   end
 
@@ -111,7 +110,6 @@ make_enemy = function(player,attributes)
     if obj[stat] < 0.0 then
       obj[stat] = 0
     end
-    --
     report_stat(stat)
   end
 
@@ -166,17 +164,17 @@ make_enemy = function(player,attributes)
       start = function()
         queue_text(function()
           color(14)
-          print "i guess this is the end..."
+          print "i GUESS THIS IS THE END..."
         end)
       end,
       middle = function()
         queue_text(function()
           color(14)
-          print "left forever to wonder"
-          print "where things went wrong"
+          print "i'M LEFT FOREVER TO WONDER"
+          print "WHERE THINGS WENT WRONG."
           color(8)
           print "game over"
-          print "ctrl+r to retry"
+          print "cTRL+r TO RETRY"
         end)
       end
     }
@@ -209,13 +207,13 @@ make_enemy = function(player,attributes)
       start = function()
         queue_text(function()
           color(12)
-          print "i've had enough of this"
+          print "i'VE HAD ENOUGH OF THIS."
         end)
       end,
       middle = function()
         queue_text(function()
           color(14)
-          print "so hurtful.."
+          print "hE CAN BE SO HURTFUL.."
         end)
         damage_player()
       end
@@ -228,7 +226,7 @@ make_enemy = function(player,attributes)
       start = function()
         queue_text(function()
           color(12)
-          print "do i mean nothing to you?"
+          print "dO i MEAN NOTHING TO YOU?"
         end)
       end,
       middle = function()
@@ -282,7 +280,6 @@ make_enemy = function(player,attributes)
           start=function()
           end,
           middle=function()
-
             lower_stat('attraction')
           end
         }
@@ -300,20 +297,20 @@ make_enemy = function(player,attributes)
           start = function()
             queue_text(function()
               color(14)
-              print("behold the power...")
+              print("bEHOLD THE POWER...")
             end)
           end,
           middle = function()
             if obj.attraction >= 1 then
               queue_text(function()
                 color(14)
-                print("of my loveliness?")
+                print("OF MY LOVELINESS?")
               end)
               lower_stat('patience')
             else
               queue_text(function()
                 color(14)
-                print("of my loveliness!")
+                print("OF MY LOVELINESS!")
               end)
               raise_stat('attraction')
               obj.patience = 1
@@ -337,8 +334,8 @@ make_enemy = function(player,attributes)
             middle = function()
               queue_text(function()
                 color(14)
-                print("we've grown too close")
-                print("his eyes no longer sparkle")
+                print("wE'VE GROWN TOO CLOSE.")
+                print("hIS EYES NO LONGER SPARKLE.")
               end)
               lower_stat('attraction')
             end
@@ -367,13 +364,13 @@ make_enemy = function(player,attributes)
           start = function()
             queue_text(function()
               color(14)
-              print "*whistles*"
+              print "*wHISTLES*"
             end)
           end,
           middle = function()
             queue_text(function()
               color(14)
-              print "mwa! :*"
+              print "mWA!"
             end)
             obj.hp-=1
             if enemy_inv then
@@ -447,8 +444,8 @@ make_enemy = function(player,attributes)
     queue_victory_text = function()
       queue_text(function()
         color(12)
-        print "no one will ever compare"
-        print "let me be forever yours"
+        print "nO ONE COULD EVER COMPARE."
+        print "lET ME BE FOREVER YOURS."
       end)
     end
     enemy_inv = make_inventory(true)
