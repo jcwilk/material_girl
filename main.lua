@@ -13,6 +13,15 @@ end
 local door_data
 local doors, gate
 
+function fancy_print(string,x,y,col1,col2)
+  for xi=x-1,x+1 do
+    for yi=y-1,y+1 do
+      print(string,xi,yi,col1)
+    end
+  end
+  print(string,x,y,col2)
+end
+
 function calc_doors()
   if door_data then
     return door_data
@@ -276,14 +285,6 @@ function _draw()
   if intro_screen then
     rectfill(0,-128,127,-1,0)
     sprites.draw(nil,9)
-    local fancy_print = function(string,x,y,col1,col2)
-      for xi=x-1,x+1 do
-        for yi=y-1,y+1 do
-          print(string,xi,yi,col1)
-        end
-      end
-      print(string,x,y,col2)
-    end
     staroffset+=.1846*stars_obj.speed
     local scale=200
     local x
@@ -352,7 +353,7 @@ function _draw()
   palt()
   sprites.draw(151,nil)
   if open_door() and sale then
-    print(sale.text,sale.x,sale.y,sale.color)
+    fancy_print(sale.text,sale.x,sale.y,1,sale.color)
   end
 end
 -- END LIB
