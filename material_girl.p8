@@ -651,8 +651,9 @@ function make_fight()
  local function fintro()
   reset_doors()
   fanim=noop_f
-  sfx(12)
-  tweens.make(fighter,'x',cfpx,30)
+  tweens.make(fighter,'x',cfpx,35,'quadratic',{ease_out=true}).next(function()
+   sfx(-1,0)
+  end)
   tweens.make(fighter,'y',ofpy,40,'quadratic')
   tweens.make(fighter,'scale',4,40,'quadratic').next(function()
    fighter.walking = false
@@ -660,6 +661,9 @@ function make_fight()
    enemy.hide = false
    enemy.walking=true
    sfx(12)
+   delays.make(35).next(function()
+    sfx(-1,0)
+   end)
    return tweens.make(enemy,'x',enemy_data.base_x,40,'quadratic',{ease_out=true})
   end).next(function()
    intro_slide = false
@@ -670,7 +674,7 @@ function make_fight()
     reset_combat_cursor()
     if store_id <= 4 then
      color(12)
-     print "welcome, see how this fits"
+     print "welcome, see how this suits you"
     else
      color(14)
      print "he's absolutely stunning. it's"
@@ -686,7 +690,7 @@ function make_fight()
   sun = sprites.make(51,{x=85,y=5,z=1,relative_to_cam=true,centered=true,rounded_position=true})
 
   fanim=noop_f
-
+  sfx(12,0)
   tweens.make(intro_textbox,'y',48,60,'quadratic').ease_in_and_out=true
 
   tweens.make(cam,'x',24,20).rounding=true
@@ -716,6 +720,7 @@ function make_fight()
 
   store_slide.next(function()
    sliding_store = false
+   sfx(12)
    return fintro()
   end)
  end
@@ -759,12 +764,14 @@ function make_fight()
    enemy.walking=true
    fighter.walking=true
    inventory.clear_hearts()
-   sfx(12)
+   sfx(12,0)
+   music(0,0,8)
    return promises.all({
     tweens.make(fighter,'x',cam.x+128+16,30),
     tweens.make(enemy,'x',cam.x+128+16+(enemy.x-fighter.x),30)
    })
   end).next(function()
+   sfx(-1,0)
    tweens.make(sun,'y',24,80,'quadratic')
    return delays.make(40)
   end).next(function()
@@ -1113,6 +1120,7 @@ function make_fight()
    return delays.make(30)
   end).next(function()
    fighter.walking=false
+   sfx(-1,0)
    exit_battle()
   end)
  end
@@ -1372,7 +1380,7 @@ function make_fight()
     walking_scale=8,
     scale=4
    })
-   player.y=(player.y-64)*0.7+64 --move away from store
+   player.y=mid(player.y-8,player.y+8,64) --move away from store
 
    start_common()
 
@@ -1612,14 +1620,7 @@ make_enemy = function(player,attributes)
    start = function()
     queue_text(function()
      color(12)
-     local picker = rnd()
-     if picker < 0.6 then
-      print "what of the time we shared?"
-     elseif picker < 0.9 then
-      print "do i mean nothing to you?"
-     else
-      print "i knew you were a mistake."
-     end
+     print "do i mean nothing to you?"
     end)
    end,
    middle = function()
@@ -1934,14 +1935,6 @@ function entered_door(x,y)
  return false
 end
 
-function exit_door_y(x,y)
- if solid_px(x,y+12) then --low door
-  return flr(y/8)*8-8
- else --high door
-  return flr(y/8)*8+8
- end
-end
-
 function reset_doors()
  door_data = nil
  doors.each(function(d)
@@ -1958,6 +1951,9 @@ end
 
 function end_walkabout()
  sale.counter=0
+ if inventory.current_store_index < 5 then
+  sfx(-1,0)
+ end
 end
 
 function update_walkabout()
@@ -1997,7 +1993,10 @@ function update_walkabout()
  end
 
  if moved then
-  player.walking=true
+  if not player.walking then
+   player.walking=true
+   sfx(12,0)
+  end
   if inventory.current_store_index > 4 and player.x > 119 then
    end_walkabout()
    fighting=make_fight(inventory)
@@ -2005,6 +2004,7 @@ function update_walkabout()
    return true
   end
  else
+  sfx(-1,0)
   player.walking=false
  end
  return true
@@ -2391,10 +2391,10 @@ __sfx__
 0110001025734257452372021722217122c7151f7321f7122c71521722217122c715217422c71521722187402b7032b7032b7032b7032b7032b7032b7032b7032b7032b7032b7032b7032b7032b7032b70324705
 0110000830644306241860518614306440c4040062000615104041040410404104040e40410404104040e4042b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b603
 0110000809646133043962621646094153962623302300012b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b6032b603
-0002000023021210211f0311e0311e0311e0311d0311d0311d0311d0311f0412104123041270512a0512e0512f0512600136001230012200111001130011500116001180011a0011d00123001290012e0012f001
+0002000023011210111f0111e0111e0111e0111d0111d0111d0111d0111f0212102123021270212a0212e0312f0312600136001230012200111001130011500116001180011a0011d00123001290012e0012f001
 000d00000d5170d5170d5170e5170f5271052712527135371553714537145471054724547165472b5571b5572a557305452e54531545305452b5072d507315073450736507385073b5073d5053d5053c5053f505
 000a000011550165501a5501e55024550195501d55021550275501c55021540255402b5402055025550295502f550365003a5003a500005000050000500005000050000500005000050000500005000050000500
-011000001f655156551e655146551b655146551865514655146550060500605006050060500605006050060500605006050060500605006050060500605006050060500605006050060500605006050060500605
+011000081f625156151e625146151b625146151862514615146450060500605006050060500605006050060500605006050060500605006050060500605006050060500605006050060500605006050060500605
 0008000014751157511b751237512f75135756387563a756007060070600706007060070600706007060070600706007060070600706007060070600706007060070600706007060070600706007060070600706
 011000001c5531d5531f55328553295532b5533455335553375530050300503005030050300503005030050300503005030050300503005030050300503005030050300503005030050300503005030050300503
 011200000f6550e6050d6050960505605006050060500605006050060500605006050060500605006050060500605006050060500605006050060500605006050060500605006050060500605006050060500605
@@ -2447,10 +2447,10 @@ __sfx__
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __music__
-01 01470644
-00 02070644
-00 03080644
-02 02074644
+01 01474644
+00 02474644
+00 03484644
+02 02474644
 00 41424344
 00 41424344
 00 41424344

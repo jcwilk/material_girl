@@ -80,14 +80,6 @@ function entered_door(x,y)
   return false
 end
 
-function exit_door_y(x,y)
-  if solid_px(x,y+12) then --low door
-    return flr(y/8)*8-8
-  else --high door
-    return flr(y/8)*8+8
-  end
-end
-
 function reset_doors()
   door_data = nil
   doors.each(function(d)
@@ -104,6 +96,9 @@ end
 
 function end_walkabout()
   sale.counter=0
+  if inventory.current_store_index < 5 then
+    sfx(-1,0)
+  end
 end
 
 function update_walkabout()
@@ -143,7 +138,10 @@ function update_walkabout()
   end
 
   if moved then
-    player.walking=true
+    if not player.walking then
+      player.walking=true
+      sfx(12,0)
+    end
     if inventory.current_store_index > 4 and player.x > 119 then
       end_walkabout()
       fighting=make_fight(inventory)
@@ -151,6 +149,7 @@ function update_walkabout()
       return true
     end
   else
+    sfx(-1,0)
     player.walking=false
   end
   return true

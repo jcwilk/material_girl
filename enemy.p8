@@ -228,14 +228,7 @@ make_enemy = function(player,attributes)
       start = function()
         queue_text(function()
           color(12)
-          local picker = rnd()
-          if picker < 0.6 then
-            print "what of the time we shared?"
-          elseif picker < 0.9 then
-            print "do i mean nothing to you?"
-          else
-            print "i knew you were a mistake."
-          end
+          print "do i mean nothing to you?"
         end)
       end,
       middle = function()

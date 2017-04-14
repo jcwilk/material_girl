@@ -223,8 +223,9 @@ function make_fight()
   local function fintro()
     reset_doors()
     fanim=noop_f
-    sfx(12)
-    tweens.make(fighter,'x',cfpx,30)
+    tweens.make(fighter,'x',cfpx,35,'quadratic',{ease_out=true}).next(function()
+      sfx(-1,0)
+    end)
     tweens.make(fighter,'y',ofpy,40,'quadratic')
     tweens.make(fighter,'scale',4,40,'quadratic').next(function()
       fighter.walking = false
@@ -232,6 +233,9 @@ function make_fight()
       enemy.hide = false
       enemy.walking=true
       sfx(12)
+      delays.make(35).next(function()
+        sfx(-1,0)
+      end)
       return tweens.make(enemy,'x',enemy_data.base_x,40,'quadratic',{ease_out=true})
     end).next(function()
       intro_slide = false
@@ -242,7 +246,7 @@ function make_fight()
         reset_combat_cursor()
         if store_id <= 4 then
           color(12)
-          print "welcome, see how this fits"
+          print "welcome, see how this suits you"
         else
           color(14)
           print "he's absolutely stunning. it's"
@@ -258,7 +262,7 @@ function make_fight()
     sun = sprites.make(51,{x=85,y=5,z=1,relative_to_cam=true,centered=true,rounded_position=true})
 
     fanim=noop_f
-
+    sfx(12,0)
     tweens.make(intro_textbox,'y',48,60,'quadratic').ease_in_and_out=true
 
     tweens.make(cam,'x',24,20).rounding=true
@@ -288,6 +292,7 @@ function make_fight()
 
     store_slide.next(function()
       sliding_store = false
+      sfx(12)
       return fintro()
     end)
   end
@@ -331,12 +336,14 @@ function make_fight()
       enemy.walking=true
       fighter.walking=true
       inventory.clear_hearts()
-      sfx(12)
+      sfx(12,0)
+      music(0,0,8)
       return promises.all({
         tweens.make(fighter,'x',cam.x+128+16,30),
         tweens.make(enemy,'x',cam.x+128+16+(enemy.x-fighter.x),30)
       })
     end).next(function()
+      sfx(-1,0)
       tweens.make(sun,'y',24,80,'quadratic')
       return delays.make(40)
     end).next(function()
@@ -685,6 +692,7 @@ function make_fight()
       return delays.make(30)
     end).next(function()
       fighter.walking=false
+      sfx(-1,0)
       exit_battle()
     end)
   end
@@ -944,7 +952,7 @@ function make_fight()
         walking_scale=8,
         scale=4
       })
-      player.y=(player.y-64)*0.7+64 --move away from store
+      player.y=mid(player.y-8,player.y+8,64) --move away from store
 
       start_common()
 
