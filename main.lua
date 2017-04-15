@@ -7,7 +7,7 @@ function sprite_collided(x,y)
 end
 
 function solid_px(x,y)
-  check_tile(flr(x/8),flr(y/8),1)
+  return check_tile(flr(x/8),flr(y/8),1)
 end
 
 local door_data

@@ -809,18 +809,15 @@ function make_fight()
         map(19,6,cam.x,intro_textbox.y,16,10) --transparent textbox
         sprites.draw(20,nil)
       elseif intro_slide then
-        --clear above text
-
         map(16+3,0,cam.x,0,16,2) --sky
         if not sliding_store then
-          sprites.draw(nil,19) --background sprites (ie, sun, clouds, etc)
+          sprites.draw(nil,19) --background sprites
         end
         palt(0,false)
-        map(0,6,0,48,19,10) --bottom half of town
-        --transition+beach
+        map(0,6,0,48,19,10) --bottom of town
 
         map(16,2,128,16,32,4) --beach
-        map(0,0,0,0,16,8) --top half of town
+        map(0,0,0,0,16,8) --top of town
 
         palt()
         if sliding_store then
@@ -860,8 +857,7 @@ function make_fight()
         pal()
         palt()
         draw_fui()
-        map(19,6,cam.x,intro_textbox.y,16,10) --transparent textbox
-        --draw_enemy_stats()
+        map(19,6,cam.x,intro_textbox.y,16,10)
         sprites.draw(11,nil)
         draw_kiss()
       end
